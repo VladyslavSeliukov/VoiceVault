@@ -1,4 +1,15 @@
 repos:
+  # === Базовая гигиена репозитория ===
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.2
     hooks:
@@ -8,24 +19,13 @@ repos:
       - id: ruff-format
         exclude: ^migrations/
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.19.1
+  - repo: local
     hooks:
       - id: mypy
-        exclude: ^migrations/
-        additional_dependencies: [
-          "pydantic>=2.9.0",
-          "pydantic-settings>=2.12.0",
-          "sqlalchemy>=2.0.45",
-          "aiogram>=3.15.0",
-          "asyncpg>=0.31.0",
-          "qdrant-client>=1.12.0",
-          "redis>=5.3.1",
-          "taskiq>=0.11.0",
-          "taskiq-aio-pika>=0.4.0",
-          "httpx>=0.28.1",
-          "prometheus-client>=0.21.1",
-          "polyfactory>=3.2.0",
-          "pytest",
-        ]
+        name: mypy (uv)
+        entry: uv run mypy
+        language: system
+        types: [ python ]
+        require_serial: true
         args: [ "--config-file=pyproject.toml" ]
+        exclude: ^migrations/
