@@ -4,6 +4,7 @@ from aiogram import Bot, Dispatcher
 
 from core.config import settings
 from modules.basic.handlers import router as basic
+from modules.voice.handlers import router as voice
 
 
 async def main() -> None:
@@ -16,6 +17,7 @@ async def main() -> None:
     dp = Dispatcher()
 
     dp.include_router(basic)
+    dp.include_router(voice)
 
     await dp.start_polling(bot)
 
