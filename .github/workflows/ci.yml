@@ -82,8 +82,19 @@ jobs:
     #           - 6333:6333
 
     env:
+      ENVIRONMENT: "test"
+      LOG_LEVEL: "INFO"
+
       BOT_TOKEN: "test_token_for_ci"
+
       VOICES_DIR: "storage/voices"
+
+      WHISPER_CPP_DIR: "/path/to/your/whisper.cpp"
+      WHISPER_MODEL: "ggml-base.bin"
+
+      WHISPER_PORT: 8080
+      WHISPER_HOST: "host.docker.internal"
+
 
     steps:
       - name: Checkout code

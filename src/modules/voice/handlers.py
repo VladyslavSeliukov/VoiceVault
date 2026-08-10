@@ -1,9 +1,7 @@
-from pathlib import Path
+import io
 
 from aiogram import Bot, F, Router
 from aiogram.types import Message, Voice
-
-from core.config import settings
 
 from .pipeline import handle_new_voice
 
@@ -19,11 +17,10 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         bot: The aiogram Bot instance used to download the file.
         voice: The Voice object extracted by MagicFilter.
     """
-    destination = Path(settings.VOICES_DIR) / f"{voice.file_id}.ogg"
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    audio_bytes = io.BytesIO()
+    await bot.download(voice.file_id, destination=audio_bytes)
+    audio_bytes.seek(0)
 
-    await bot.download(voice.file_id, destination=destination)
-
-    await handle_new_voice(file_path=destination)
+    await handle_new_voice(file_id=voice.file_id, audio_bytes=audio_bytes)
 
     await message.answer("Got it")
