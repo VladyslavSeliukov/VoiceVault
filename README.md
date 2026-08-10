@@ -24,11 +24,11 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 - [x] **Phase 1: Skeleton.** Receive voice messages via `aiogram` and save them locally
   to disk. No ML or message brokers involved.
-- [ ] **Phase 2: STT Integration.** Forward audio to local `whisper.cpp` via HTTP and
+- [x] **Phase 2: STT Integration.** Forward audio to local `whisper.cpp` via HTTP and
   print the raw transcript to the console.
 - [ ] **Phase 3: LLM Structuring.** Send the transcript to Qwen, generate JSON, and
   enforce strict schema validation using `Pydantic v2`.
-- [ ] **Phase 4: Synchronous MVP.** Construct a `.md` file with YAML frontmatter and
+- [x] **Phase 4: Synchronous MVP.** Construct a `.md` file with YAML frontmatter and
   write it directly to the Obsidian Volume.
 - [ ] **Phase 5: Long-Tail Debounce & Manual Flush.** Introduce Redis for batching.
   Implement a 1-hour silence timer to merge spaced-out thoughts into a single context,
