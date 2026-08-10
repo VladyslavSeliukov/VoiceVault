@@ -4,6 +4,7 @@ import httpx
 
 from core.config import settings
 from core.logger import logger
+from modules.obsidian.service import create_note
 
 
 async def transcribe(file_id: str, audio_bytes: io.BytesIO) -> str:
@@ -40,4 +41,7 @@ async def handle_new_voice(file_id: str, audio_bytes: io.BytesIO) -> None:
         str: The transcribed text.
     """
     transcript = await transcribe(file_id, audio_bytes)
-    logger.info(f"[file={file_id[:15]}...] transcript: {transcript.strip()!r}")
+    clean_text: str = transcript.strip()
+    logger.info(f"[file={file_id[:15]}...] transcript: {clean_text!r}")
+
+    await create_note(text=clean_text, source="VoiceVault_voice")
