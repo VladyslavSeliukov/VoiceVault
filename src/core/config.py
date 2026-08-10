@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     WHISPER_CPP_DIR: str
     WHISPER_MODEL: str
 
+    OBSIDIAN_DIR: str
+
     @property
     def WHISPER_URL(self) -> str:
         """Dynamically construct the whisper server URL."""
