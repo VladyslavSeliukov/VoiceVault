@@ -1,11 +1,43 @@
-from pathlib import Path
+import io
+
+import httpx
+
+from core.config import settings
+from core.logger import logger
 
 
-async def handle_new_voice(file_path: Path) -> None:
-    """Phase 1: file is already on disk, nothing more to do.
+async def transcribe(file_id: str, audio_bytes: io.BytesIO) -> str:
+    """Send in-memory audio stream to whisper.cpp server for transcription.
 
-    Phase 5 will replace the body with: push to Redis + start debounce timer.
-    Phase 6 will replace it again with: publish task to RabbitMQ.
-    The handler below never needs to change — only this function's insides do.
+    Args:
+        file_id: The unique Telegram file ID (used as filename).
+        audio_bytes: In-memory byte stream of the downloaded audio.
+
+    Returns:
+        str: The transcribed text.
     """
-    pass
+    filename = f"{file_id}.ogg"
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            f"{settings.WHISPER_URL}/inference",
+            files={"file": (filename, audio_bytes, "audio/ogg")},
+            data={"temperature": 0.0, "response_format": "json"},
+        )
+
+    response.raise_for_status()
+    return str(response.json()["text"])
+
+
+async def handle_new_voice(file_id: str, audio_bytes: io.BytesIO) -> None:
+    """Send in-memory audio stream to whisper.cpp server for transcription.
+
+    Args:
+        file_id: The unique Telegram file ID (used as filename).
+        audio_bytes: In-memory byte stream of the downloaded audio.
+
+    Returns:
+        str: The transcribed text.
+    """
+    transcript = await transcribe(file_id, audio_bytes)
+    logger.info(f"[file={file_id[:15]}...] transcript: {transcript.strip()!r}")
