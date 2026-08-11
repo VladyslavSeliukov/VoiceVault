@@ -28,6 +28,10 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
   print the raw transcript to the console.
 - [ ] **Phase 3: LLM Structuring.** Send the transcript to Qwen, generate JSON, and
   enforce strict schema validation using `Pydantic v2`.
+- [ ] **Phase 3.1: Dual-Storage Routing.** Update the Obsidian service to save the
+  raw transcript to an `Inbox` directory and the LLM-generated summary to a
+  `Processed` directory. Inject a bidirectional Obsidian link (`[[raw_filename]]`)
+  into the summary note for traceability.
 - [x] **Phase 4: Synchronous MVP.** Construct a `.md` file with YAML frontmatter and
   write it directly to the Obsidian Volume.
 - [ ] **Phase 5: Long-Tail Debounce & Manual Flush.** Introduce Redis for batching.
