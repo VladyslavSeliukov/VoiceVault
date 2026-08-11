@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     WHISPER_CPP_DIR: str
     WHISPER_MODEL: str
 
-    OBSIDIAN_DIR: str
+    HOST_OBSIDIAN_DIR: str
+    OBSIDIAN_DIR: str = "/app/storage/obsidian"
 
     @property
     def WHISPER_URL(self) -> str:

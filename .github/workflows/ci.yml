@@ -95,7 +95,8 @@ jobs:
       WHISPER_PORT: 8080
       WHISPER_HOST: "host.docker.internal"
 
-      OBSIDIAN_DIR: "/path/to/your/obsidian/folder"
+      HOST_OBSIDIAN_DIR: "/path/to/your/obsidian/folder"
+      OBSIDIAN_DIR: "/app/storage/obsidian"
 
     steps:
       - name: Checkout code
