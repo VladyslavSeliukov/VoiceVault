@@ -25,12 +25,7 @@ async def create_note(text: str, source: str = "VoiceVault") -> Path:
     filepath = obsidian_dir / filename
 
     content = (
-        "---\n"
-        f"date: {now.isoformat()}\n"
-        f"source: {source}\n"
-        "tags: [inbox, bot]\n"
-        "---\n\n"
-        f"{text}\n"
+        f"---\ndate: {now.isoformat()}\nsource: {source}\ntags: []\n---\n\n{text}\n"
     )
 
     async with aiofiles.open(filepath, mode="w", encoding="utf-8") as file:
