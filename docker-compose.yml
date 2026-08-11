@@ -11,6 +11,7 @@ services:
       - voicevault
     volumes:
       - ./storage:/app/storage
+      - ${HOST_OBSIDIAN_DIR}:${OBSIDIAN_DIR}
 
   #     ── Phase 6+ ── uncomment once RabbitMQ tasks exist
   #     worker:
