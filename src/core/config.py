@@ -23,6 +23,10 @@ class Settings(BaseSettings):
         LLM_API_BASE: The base URL for the LLM API endpoint.
         LLM_MODEL: The name/identifier of the LLM model used for text processing.
 
+        REDIS_URL: The connection string for the Redis instance used for buffer state.
+        FLUSH_TIMEOUT_MINUTES: The inactivity duration in minutes before triggering an
+            auto-flush.
+
     Properties:
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
     """
@@ -44,6 +48,9 @@ class Settings(BaseSettings):
 
     LLM_API_BASE: str = "http://localhost:1234/v1"
     LLM_MODEL: str
+
+    REDIS_URL: str = "redis://localhost:6379/0"
+    FLUSH_TIMEOUT_MINUTES: int = 60
 
     @property
     def WHISPER_URL(self) -> str:
