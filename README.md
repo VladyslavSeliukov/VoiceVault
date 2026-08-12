@@ -26,9 +26,9 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
   to disk. No ML or message brokers involved.
 - [x] **Phase 2: STT Integration.** Forward audio to local `whisper.cpp` via HTTP and
   print the raw transcript to the console.
-- [ ] **Phase 3: LLM Structuring.** Send the transcript to Qwen, generate JSON, and
+- [x] **Phase 3: LLM Structuring.** Send the transcript to Qwen, generate JSON, and
   enforce strict schema validation using `Pydantic v2`.
-- [ ] **Phase 3.1: Dual-Storage Routing.** Update the Obsidian service to save the
+- [x] **Phase 3.1: Dual-Storage Routing.** Update the Obsidian service to save the
   raw transcript to an `Inbox` directory and the LLM-generated summary to a
   `Processed` directory. Inject a bidirectional Obsidian link (`[[raw_filename]]`)
   into the summary note for traceability.
