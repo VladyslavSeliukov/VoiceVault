@@ -98,6 +98,9 @@ jobs:
       HOST_OBSIDIAN_DIR: "/path/to/your/obsidian/folder"
       OBSIDIAN_DIR: "/app/storage/obsidian"
 
+      LLM_API_BASE: "http://testhost:1234/v1"
+      LLM_MODEL: "test-9b-llm"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

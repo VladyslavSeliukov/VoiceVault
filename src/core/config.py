@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     HOST_OBSIDIAN_DIR: str
     OBSIDIAN_DIR: str = "/app/storage/obsidian"
 
+    LLM_API_BASE: str = "http://localhost:1234/v1"
+    LLM_MODEL: str
+
     @property
     def WHISPER_URL(self) -> str:
         """Dynamically construct the whisper server URL."""
