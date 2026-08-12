@@ -485,6 +485,12 @@ wheels = [
 ]
 
 [[package]]
+name = "field"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/51/55bd7485e2b45cd1f4cfb95526a478e956979ae71d080feadcde14c020fe/field-0.2.0.tar.gz", hash = "sha256:29394bc076ac37e1b40aa5d9249d8a60056f244bf6167d29cc66ec9d6b7dd182", size = 18325, upload-time = "2015-04-08T00:08:42.168Z" }
+
+[[package]]
 name = "filelock"
 version = "3.32.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1913,6 +1919,7 @@ dependencies = [
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "clean-text" },
+    { name = "field" },
     { name = "greenlet" },
     { name = "httpx" },
     { name = "prometheus-client" },
@@ -1944,6 +1951,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.18.0" },
     { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "clean-text", specifier = ">=0.7.1" },
+    { name = "field", specifier = ">=0.2.0" },
     { name = "greenlet", specifier = ">=3.3.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "prometheus-client", specifier = ">=0.21.1" },
