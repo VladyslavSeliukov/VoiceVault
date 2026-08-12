@@ -11,11 +11,20 @@ class Settings(BaseSettings):
         BOT_TOKEN: The Telegram Bot API token required for authentication.
         VOICES_DIR: The directory path where downloaded voice messages are stored.
 
-        WHISPER_CPP_DIR: The absolute path to the local whisper.cpp repository directory
-        WHISPER_HOST: The full HTTP URL of the whisper server API.
-
         WHISPER_PORT: The port number on which the local whisper server operates.
+        WHISPER_HOST: The hostname or IP address of the whisper server.
+
+        WHISPER_CPP_DIR: The absolute path to the whisper.cpp repository directory.
         WHISPER_MODEL: The filename of the whisper model loaded by the server.
+
+        HOST_OBSIDIAN_DIR: The path to the Obsidian vault directory on the host machine.
+        OBSIDIAN_DIR: The target path where Obsidian notes are stored.
+
+        LLM_API_BASE: The base URL for the LLM API endpoint.
+        LLM_MODEL: The name/identifier of the LLM model used for text processing.
+
+    Properties:
+        WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
     """
 
     ENVIRONMENT: str
