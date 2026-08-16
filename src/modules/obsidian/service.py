@@ -92,24 +92,32 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> None
     Returns:
         None
     """
-    body: str = f"# {analysis.title}\n\n## Summary\n{analysis.summary}\n\n"
+    body: str = f"## Summary\n{analysis.summary}\n\n"
 
     if analysis.action_points:
         body += "## Action Points\n"
         for task in analysis.action_points:
             body += f"- [ ] {task}\n"
 
-    safe_title: str = "".join(
-        c for c in analysis.title if c.isalnum() or c in " -_"
-    ).strip()
-    filename: str = f"{safe_title}.md"
+    frontmatter = "---\ntype: Analysed\n"
 
-    metadata: dict[str, Any] = {
-        "type": "Analysed",
-        "tags": analysis.tags,
-        "source": f'"[[{raw_filename}]]"',
-    }
+    if analysis.tags:
+        frontmatter += "tags:\n"
+        for tag in analysis.tags:
+            frontmatter += f"  - {tag}\n"
 
-    await _write_obsidian_note(
-        subfolder="Processed", filename=filename, body=body, frontmatter=metadata
-    )
+    frontmatter += f"source: '[[{raw_filename}]]'\n---\n\n"
+
+    note_content = frontmatter + body
+
+    safe_title = analysis.title.replace("/", "_").replace("\\", "_")
+    base_path = Path(settings.OBSIDIAN_DIR) / "Processed"
+    file_path = base_path / f"{safe_title}.md"
+
+    counter = 1
+    while file_path.exists():
+        file_path = base_path / f"{safe_title}_{counter}.md"
+        counter += 1
+
+    async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
+        await f.write(note_content)

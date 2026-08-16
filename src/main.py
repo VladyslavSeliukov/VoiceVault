@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher
 
 from core.config import settings
 from modules.basic.handlers import router as basic
-from modules.voice.handlers import router as voice
+from modules.telegram.handlers.voice import router as voice
 
 
 async def main() -> None:
