@@ -6,9 +6,8 @@ from aiogram.types import (
 )
 
 from core.logger import logger
-
-from ..telegram.keyboards.voice import build_flush_keyboard
-from .pipeline import flush_pipeline, handle_new_voice
+from modules.telegram.keyboards.voice import build_flush_keyboard
+from modules.voice.pipeline import flush_pipeline, handle_new_voice
 
 router = Router()
 
