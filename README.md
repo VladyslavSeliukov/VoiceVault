@@ -34,7 +34,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
   into the summary note for traceability.
 - [x] **Phase 4: Synchronous MVP.** Construct a `.md` file with YAML frontmatter and
   write it directly to the Obsidian Volume.
-- [ ] **Phase 5: Long-Tail Debounce & Manual Flush.** Introduce Redis for batching.
+- [x] **Phase 5: Long-Tail Debounce & Manual Flush.** Introduce Redis for batching.
   Implement a 1-hour silence timer to merge spaced-out thoughts into a single context,
   plus an inline button for immediate manual flush when switching topics.
 - [ ] **Phase 6: RabbitMQ & Taskiq.** Isolate heavy ML processing into asynchronous
@@ -48,6 +48,10 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
   retries.
 - [ ] **Phase 9: Vectorization.** Add an independent downstream task to generate
   embeddings for completed notes and store them in Qdrant (linked via PostgreSQL IDs).
+- [ ] **Phase 9.1: Dynamic Taxonomy & Tag Management.** Introduce PostgreSQL tables to
+  store custom predefined tags. Add Telegram commands to manage this list dynamically.
+  Update the LLM system prompt to fetch and enforce these allowed topics during
+  classification.
 - [ ] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
