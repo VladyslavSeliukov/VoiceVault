@@ -1,6 +1,5 @@
 services:
 
-  #     ── Phase 1+ ── main bot process (aiogram polling)
   bot:
     build: .
     env_file: .env
@@ -11,43 +10,20 @@ services:
       - voicevault
     volumes:
       - ./storage:/app/storage
-      - ${HOST_OBSIDIAN_DIR}:${OBSIDIAN_DIR}
+      - obsidian_vault:${OBSIDIAN_DIR}
 
-  #     ── Phase 6+ ── uncomment once RabbitMQ tasks exist
-  #     worker:
-  #       build: .
-  #       command: ["taskiq", "worker", "services.tasks:broker"]
-  #       env_file: .env
-  #       volumes:
-  #         - obsidian_vault:/vault
-  #       depends_on:
-  #         rabbitmq:
-  #           condition: service_healthy
-  #         postgres:
-  #           condition: service_healthy
-  #       networks:
-  #         - voicevault
-  #
-  #     ── Phase 4+ ── needed once you start persisting note metadata
-  postgres:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: voicevault
-      POSTGRES_PASSWORD: voicevault
-      POSTGRES_DB: voicevault
-    ports:
-      - "5432:5432"
+  worker:
+    build: .
+    command: arq src.worker.WorkerSettings
+    env_file: .env
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U voicevault" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - obsidian_vault:${OBSIDIAN_DIR}
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - voicevault
 
-  #     ── Phase 1+ ── needed for FSM storage + debounce timer
   redis:
     image: redis:8
     ports:
@@ -61,6 +37,24 @@ services:
       retries: 5
     networks:
       - voicevault
+
+  #  postgres:
+  #    image: postgres:16
+  #    environment:
+  #      POSTGRES_USER: voicevault
+  #      POSTGRES_PASSWORD: voicevault
+  #      POSTGRES_DB: voicevault
+  #    ports:
+  #      - "5432:5432"
+  #    volumes:
+  #      - postgres_data:/var/lib/postgresql/data
+  #    healthcheck:
+  #      test: [ "CMD-SHELL", "pg_isready -U voicevault" ]
+  #      interval: 5s
+  #      timeout: 5s
+  #      retries: 5
+  #    networks:
+  #      - voicevault
 
 #   ── Phase 6+ ── uncomment once moving off synchronous processing
 #   rabbitmq:
@@ -112,14 +106,14 @@ networks:
   voicevault:
 
 volumes:
-  postgres_data:
-  redis_data:
+  #  postgres_data:
   # rabbitmq_data:
   # qdrant_data:
   # grafana_data:
+  redis_data:
   obsidian_vault:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /Users/vladyslav/path/to/your/obsidian/vault  # ← только это одно значение стоит поправить под себя
+      device: ${HOST_OBSIDIAN_DIR}
