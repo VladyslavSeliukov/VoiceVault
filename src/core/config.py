@@ -26,9 +26,12 @@ class Settings(BaseSettings):
         REDIS_URL: The connection string for the Redis instance used for buffer state.
         FLUSH_TIMEOUT_MINUTES: The inactivity duration in minutes before triggering an
             auto-flush.
+        RABBITMQ_USER: The username for authenticating with the RabbitMQ broker.
+        RABBITMQ_PASS: The password for authenticating with the RabbitMQ broker.
 
     Properties:
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
+        RABBITMQ_URL: Dynamically constructs the AMQP connection string for RabbitMQ.
     """
 
     ENVIRONMENT: str
@@ -52,10 +55,18 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     FLUSH_TIMEOUT_MINUTES: int = 60
 
+    RABBITMQ_USER: str
+    RABBITMQ_PASS: str
+
     @property
     def WHISPER_URL(self) -> str:
         """Dynamically construct the whisper server URL."""
         return f"http://{self.WHISPER_HOST}:{self.WHISPER_PORT}"
+
+    @property
+    def RABBITMQ_URL(self) -> str:
+        """Dynamically constructs the AMQP connection string for RabbitMQ."""
+        return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@rabbitmq:5672/"
 
 
 settings = Settings()
