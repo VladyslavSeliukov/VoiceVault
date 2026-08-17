@@ -5,7 +5,7 @@ from typing import Any
 from core.redis import RedisKeys, redis_client
 
 
-async def add_to_buffer(user_id: int, transcript: str, raw_filename: str) -> int:
+async def add_to_buffer(user_id: int, transcript: str) -> int:
     """Adds a parsed transcript to the user's Redis buffer and updates activity.
 
     Serializes the STT output and file reference into a JSON payload, pushes
@@ -15,13 +15,12 @@ async def add_to_buffer(user_id: int, transcript: str, raw_filename: str) -> int
     Args:
         user_id (int): The Telegram user ID.
         transcript (str): The clean text output from the STT model.
-        raw_filename (str): The filename of the saved raw voice message.
 
     Returns:
         int: The current number of items in the user's buffer.
     """
     payload = json.dumps(
-        {"transcript": transcript, "raw_filename": raw_filename},
+        {"transcript": transcript},
         ensure_ascii=False,
     )
 

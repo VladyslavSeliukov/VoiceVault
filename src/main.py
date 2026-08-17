@@ -2,9 +2,23 @@ import asyncio
 
 from aiogram import Bot, Dispatcher
 
+from core.broker import broker
 from core.config import settings
+from core.logger import logger
 from modules.basic.handlers import router as basic
 from modules.telegram.handlers.voice import router as voice
+
+
+async def on_startup() -> None:
+    """Execute tasks before the bot starts polling."""
+    logger.info("[bot] Starting Telegram Bot...")
+    await broker.startup()
+
+
+async def on_shutdown() -> None:
+    """Execute tasks before the bot stops."""
+    logger.info("[bot] Shutting down Telegram Bot...")
+    await broker.shutdown()
 
 
 async def main() -> None:
@@ -15,6 +29,9 @@ async def main() -> None:
     """
     bot = Bot(token=settings.BOT_TOKEN)
     dp = Dispatcher()
+
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
     dp.include_router(basic)
     dp.include_router(voice)

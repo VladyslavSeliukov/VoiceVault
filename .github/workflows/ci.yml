@@ -104,6 +104,10 @@ jobs:
       REDIS_URL: "redis://localhost:6379/0"
       FLUSH_TIMEOUT_MINUTES: 60
 
+      RABBITMQ_USER: "guest"
+      RABBITMQ_PASS: "guest"
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

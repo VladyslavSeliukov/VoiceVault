@@ -1,3 +1,5 @@
+import base64
+
 from aiogram import Bot, F, Router
 from aiogram.types import (
     Message,
@@ -7,7 +9,8 @@ from aiogram.types import (
 
 from core.logger import logger
 from modules.telegram.keyboards.voice import build_flush_keyboard
-from modules.voice.pipeline import flush_pipeline, handle_new_voice
+from modules.voice.pipeline import flush_pipeline
+from modules.voice.tasks import process_voice_task
 
 router = Router()
 
@@ -40,14 +43,18 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         return
 
     raw_audio: bytes = downloaded_stream.read()
-    queue_length = await handle_new_voice(
-        file_id=voice.file_id, audio_bytes=raw_audio, user_id=message.from_user.id
-    )
+    b64_audio = base64.b64encode(raw_audio).decode("utf-8")
 
     markup = build_flush_keyboard()
+    status_msg = await message.answer(
+        "⏳ Audio sent to STT queue. Waiting for Whisper...", reply_markup=markup
+    )
 
-    await message.answer(
-        f"Added to buffer. In queue: {queue_length} message(s).", reply_markup=markup
+    await process_voice_task.kiq(
+        file_id=voice.file_id,
+        b64_audio=b64_audio,
+        user_id=message.from_user.id,
+        status_message_id=status_msg.message_id,
     )
 
 
@@ -72,19 +79,18 @@ async def manual_flush(message: Message) -> None:
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")
         return
+
     status_msg = await message.answer(
         "Processing your notes, please wait...", reply_markup=ReplyKeyboardRemove()
     )
 
     try:
-        success = await flush_pipeline(user_id=message.from_user.id)
+        success = await flush_pipeline(
+            user_id=message.from_user.id, status_message_id=status_msg.message_id
+        )
 
-        await status_msg.delete()
-
-        if success:
-            await message.answer("Processed and saved successfully!")
-        else:
-            await message.answer("Buffer is empty.")
+        if not success:
+            await status_msg.edit_text("❌ Buffer is empty.")
 
     except Exception as e:
         logger.error(f"[flush] Fatal error: {e}")

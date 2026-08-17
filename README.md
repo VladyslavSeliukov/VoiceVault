@@ -37,7 +37,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [x] **Phase 5: Long-Tail Debounce & Manual Flush.** Introduce Redis for batching.
   Implement a 1-hour silence timer to merge spaced-out thoughts into a single context,
   plus an inline button for immediate manual flush when switching topics.
-- [ ] **Phase 6: RabbitMQ & Taskiq.** Isolate heavy ML processing into asynchronous
+- [x] **Phase 6: RabbitMQ & Taskiq.** Isolate heavy ML processing into asynchronous
   workers. Implement **Manual ACKs** (message is acknowledged *only* after a successful
   physical disk write).
 - [ ] **Phase 7: Idempotency Layer.** Hash incoming audio payloads in Redis to strictly
@@ -55,6 +55,15 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [ ] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
+- [ ] **Phase 11: Technical Debt Resolution.** Fast-paced development naturally leaves
+  behind technical debt. This phase is dedicated to stabilizing the core architecture
+  and preparing the system for production.
+    - [ ] **Phase 11.1: Comprehensive Review & Refactoring.** Conduct a full project
+      audit. Eliminate dead code, unify code conventions, optimize imports, and ensure
+      strict type hinting and modular isolation across all services.
+    - [ ] **Phase 11.2: End-to-End Testing.** Implement unit and integration tests on
+      the stabilized codebase. Validate RabbitMQ queue reliability, database
+      transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
 
 ---
 
@@ -109,6 +118,9 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 ```bash
 git clone https://github.com/VladyslavSeliukov/VoiceVault.git
 cd voicevault
+
+# Start the local Whisper server for STT processing
+bash scripts/run_whisper.sh
 
 # Start infrastructure (Postgres, RabbitMQ, Redis, Qdrant) and App
 docker compose up --build -d
