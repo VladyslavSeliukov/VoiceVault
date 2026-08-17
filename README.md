@@ -43,15 +43,17 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [x] **Phase 7: Idempotency Layer.** Hash incoming audio payloads in Redis to strictly
   prevent duplicate notes during message redeliveries (at-least-once delivery
   protection).
-- [ ] **Phase 8: Dead Letter Exchange (DLX).** Route continuously failing tasks (e.g.,
+- [x] **Phase 8: Dead Letter Exchange (DLX).** Route continuously failing tasks (e.g.,
   LLM timeouts, Whisper OOMs) to a DLQ instead of blocking the main queue with infinite
   retries.
 - [ ] **Phase 9: Vectorization.** Add an independent downstream task to generate
   embeddings for completed notes and store them in Qdrant (linked via PostgreSQL IDs).
-- [ ] **Phase 9.1: Dynamic Taxonomy & Tag Management.** Introduce PostgreSQL tables to
-  store custom predefined tags. Add Telegram commands to manage this list dynamically.
-  Update the LLM system prompt to fetch and enforce these allowed topics during
-  classification.
+    - [ ] **Phase 9.1: Dynamic Taxonomy & Tag Management.** Introduce PostgreSQL tables
+      to
+      store custom predefined tags. Add Telegram commands to manage this list
+      dynamically.
+      Update the LLM system prompt to fetch and enforce these allowed topics during
+      classification.
 - [ ] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
