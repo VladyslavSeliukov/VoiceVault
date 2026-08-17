@@ -12,18 +12,6 @@ services:
       - ./storage:/app/storage
       - obsidian_vault:${OBSIDIAN_DIR}
 
-  worker:
-    build: .
-    command: arq src.worker.WorkerSettings
-    env_file: .env
-    volumes:
-      - obsidian_vault:${OBSIDIAN_DIR}
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - voicevault
-
   redis:
     image: redis:8
     ports:
@@ -37,6 +25,56 @@ services:
       retries: 5
     networks:
       - voicevault
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: voicevault_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_port_connectivity" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voicevault
+    restart: unless-stopped
+
+  worker:
+    build: .
+    container_name: worker
+    command: taskiq worker core.broker:broker modules.voice.tasks worker
+    env_file: .env
+    volumes:
+      - obsidian_vault:${OBSIDIAN_DIR}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voicevault
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    container_name: scheduler
+    command: taskiq scheduler worker:scheduler modules.voice.tasks
+    env_file: .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voicevault
+    restart: unless-stopped
 
   #  postgres:
   #    image: postgres:16
@@ -56,21 +94,6 @@ services:
   #    networks:
   #      - voicevault
 
-#   ── Phase 6+ ── uncomment once moving off synchronous processing
-#   rabbitmq:
-#     image: rabbitmq:4-management
-#     ports:
-#       - "5672:5672"    # AMQP
-#       - "15672:15672"  # Management UI
-#     volumes:
-#       - rabbitmq_data:/var/lib/rabbitmq
-#     healthcheck:
-#       test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
-#     networks:
-#       - voicevault
 #
 #   ── Phase 9+ ── uncomment once vectorization step exists
 #   qdrant:
@@ -107,9 +130,9 @@ networks:
 
 volumes:
   #  postgres_data:
-  # rabbitmq_data:
   # qdrant_data:
   # grafana_data:
+  rabbitmq_data:
   redis_data:
   obsidian_vault:
     driver: local
