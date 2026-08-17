@@ -2,7 +2,27 @@ import json
 import time
 from typing import Any
 
+from core.config import settings
 from core.redis import RedisKeys, redis_client
+
+
+async def check_and_set_idempotency(key_suffix: str) -> bool:
+    """Checks if an operation has already been processed using Redis SETNX.
+
+    Creates an atomic lock for a given key to prevent duplicate processing
+    (e.g., from network retries or message broker redeliveries).
+
+    Args:
+        key_suffix (str): The unique identifier for the operation.
+
+    Returns:
+        bool: True if it's a new operation (lock acquired), False if duplicate.
+    """
+    key = RedisKeys.idempotency(key_suffix)
+    is_new = await redis_client.set(
+        key, "1", ex=settings.IDEMPOTENCY_TTL_SECONDS, nx=True
+    )
+    return bool(is_new)
 
 
 async def add_to_buffer(user_id: int, transcript: str) -> int:

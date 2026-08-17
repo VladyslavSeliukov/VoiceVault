@@ -47,3 +47,16 @@ class RedisKeys:
             str: Formatted Redis key string.
         """
         return f"voicevault:activity:user:{user_id}"
+
+    @staticmethod
+    def idempotency(key_suffix: str) -> str:
+        """Generates the Redis key used for storing idempotency locks.
+
+        Args:
+            key_suffix (str): The unique identifier for the specific operation
+                (e.g., 'stt:<file_id>' or 'llm:<hash>').
+
+        Returns:
+            str: The fully qualified Redis key string.
+        """
+        return f"voicevault:idempotency:{key_suffix}"

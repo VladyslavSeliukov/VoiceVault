@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import traceback
 
 from aiogram import Bot
@@ -10,7 +11,7 @@ from core.logger import logger
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
 from modules.telegram.keyboards.voice import build_flush_keyboard
-from modules.voice.buffer import add_to_buffer
+from modules.voice.buffer import add_to_buffer, check_and_set_idempotency
 from modules.voice.stt import transcribe
 
 
@@ -42,6 +43,13 @@ async def process_voice_task(
             for Taskiq to handle retries.
     """
     logger.info(f"[worker] Starting STT task for file_id={file_id[:8]}...")
+
+    is_new = await check_and_set_idempotency(f"stt:{file_id}")
+    if not is_new:
+        logger.warning(
+            f"[worker] Duplicate STT task detected for file_id={file_id[:8]}. Skipping."
+        )
+        return
 
     try:
         audio_bytes = base64.b64decode(b64_audio)
@@ -127,6 +135,15 @@ async def process_llm_note_task(
             is logged, the user is notified via Telegram (if it was a manual trigger),
             and the exception is re-raised for Taskiq to handle retries.
     """
+    transcript_hash = hashlib.md5(combined_transcript.encode("utf-8")).hexdigest()
+    is_new = await check_and_set_idempotency(f"llm:{transcript_hash}")
+
+    if not is_new:
+        logger.warning(
+            f"[worker] Duplicate LLM task detected for user {user_id}. Skipping."
+        )
+        return
+
     logger.info(f"[worker] Starting LLM task for user {user_id}...")
 
     try:

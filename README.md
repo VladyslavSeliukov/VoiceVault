@@ -40,7 +40,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [x] **Phase 6: RabbitMQ & Taskiq.** Isolate heavy ML processing into asynchronous
   workers. Implement **Manual ACKs** (message is acknowledged *only* after a successful
   physical disk write).
-- [ ] **Phase 7: Idempotency Layer.** Hash incoming audio payloads in Redis to strictly
+- [x] **Phase 7: Idempotency Layer.** Hash incoming audio payloads in Redis to strictly
   prevent duplicate notes during message redeliveries (at-least-once delivery
   protection).
 - [ ] **Phase 8: Dead Letter Exchange (DLX).** Route continuously failing tasks (e.g.,
