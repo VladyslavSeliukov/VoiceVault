@@ -26,6 +26,9 @@ class Settings(BaseSettings):
         REDIS_URL: The connection string for the Redis instance used for buffer state.
         FLUSH_TIMEOUT_MINUTES: The inactivity duration in minutes before triggering an
             auto-flush.
+        IDEMPOTENCY_TTL_SECONDS: The time-to-live in seconds for idempotency locks to
+            prevent duplicate tasks.
+
         RABBITMQ_USER: The username for authenticating with the RabbitMQ broker.
         RABBITMQ_PASS: The password for authenticating with the RabbitMQ broker.
 
@@ -54,6 +57,7 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://localhost:6379/0"
     FLUSH_TIMEOUT_MINUTES: int = 60
+    IDEMPOTENCY_TTL_SECONDS: int = 86400
 
     RABBITMQ_USER: str
     RABBITMQ_PASS: str
