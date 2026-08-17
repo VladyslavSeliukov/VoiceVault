@@ -6,6 +6,12 @@ from core.logger import logger
 
 broker = AioPikaBroker(
     url=settings.RABBITMQ_URL,
+    declare_queues_kwargs={
+        "arguments": {
+            "x-queue-type": "quorum",
+            "x-delivery-limit": 3,
+        }
+    },
 )
 
 
