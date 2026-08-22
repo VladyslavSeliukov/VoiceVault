@@ -46,14 +46,12 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [x] **Phase 8: Dead Letter Exchange (DLX).** Route continuously failing tasks (e.g.,
   LLM timeouts, Whisper OOMs) to a DLQ instead of blocking the main queue with infinite
   retries.
-- [ ] **Phase 9: Vectorization.** Add an independent downstream task to generate
+- [x] **Phase 9: Vectorization.** Add an independent downstream task to generate
   embeddings for completed notes and store them in Qdrant (linked via PostgreSQL IDs).
-    - [ ] **Phase 9.1: Dynamic Taxonomy & Tag Management.** Introduce PostgreSQL tables
-      to
-      store custom predefined tags. Add Telegram commands to manage this list
-      dynamically.
-      Update the LLM system prompt to fetch and enforce these allowed topics during
-      classification.
+    - [x] **Phase 9.1: Dynamic Taxonomy & Tag Management.** Introduce PostgreSQL tables
+      to store custom predefined tags. Add Telegram commands to manage this list
+      dynamically. Update the LLM system prompt to fetch and enforce these allowed
+      topics during classification.
 - [ ] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
@@ -63,9 +61,45 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
     - [ ] **Phase 11.1: Comprehensive Review & Refactoring.** Conduct a full project
       audit. Eliminate dead code, unify code conventions, optimize imports, and ensure
       strict type hinting and modular isolation across all services.
+        - докстринг
+        - таймауты на ии вызовах
+        - логирование
+        - обработку ошибок
+        - в целом посмотреть докер компоуз, чекнуть depends_on, закрыть порты и открыть
+          в овверрайде (короче, сделать прям здравый прод и овверрдайд для разработки и
+          обычный для прода)
+        - может добавить что-то в ci cd
     - [ ] **Phase 11.2: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
+- [ ] **Phase 12: Backlog & Future Enhancements.** Additional features and architectural
+  improvements conceptualized during the core development phases. These were
+  deliberately postponed to maintain initial delivery timelines and prevent scope creep.
+    - [ ] **Phase 12.1: Adaptive Index Synchronization (Exponential Backoff).**
+      Dynamically adjust the interval for scanning and indexing the Obsidian vault based
+      on user activity. Functionally, if no notes are modified, the system increases the
+      delay between checks (e.g., from 15m to 30m, then 1h) to conserve resources.
+      Technically, this requires storing the "last modified state" in Redis/PostgreSQL
+      and implementing stateful evaluation logic within the Taskiq worker to gracefully
+      bypass the fixed cron schedule, effectively simulating dynamic jitter without
+      maintaining a heavy real-time watchdog daemon.
+    - [ ] **Phase 12.2: Scale-to-Zero Local Model Management.** Implement a
+      resource-aware middleware to manage memory-intensive local AI models (STT,
+      Embeddings). The system will dynamically load models into RAM upon receiving a
+      request and automatically unload them after a configured idle timeout. This
+      prevents background memory monopolization on the host working machine, effectively
+      mimicking the auto-unload behavior of tools like LM Studio/Ollama for isolated
+      processes like Whisper.
+    - добавить прослойку для выбора lm студио (для mlx моделей) и олама (для gguf и
+      эмбедингов)
+    - убрать изменения клавиатуры. только удаление и новое сообщение
+    - убрать клавиатуру из первого собщения о очереди
+    - сделать папку ai под ллм и эмбединги
+    - перенести basic/handlers.py к другим хендлерам тг
+    - jitler
+    - поддержка текстовых сообщений
+    - сделать полноценный exceptions.py
+    - режим ночного анализа
 
 ---
 
