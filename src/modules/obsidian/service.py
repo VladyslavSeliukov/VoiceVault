@@ -76,7 +76,7 @@ async def save_raw_transcript(transcript: str, file_id: str) -> str:
     return filename
 
 
-async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> None:
+async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> str:
     """Generates and saves a structured markdown note based on LLM analysis.
 
     Constructs a readable note containing a summary and actionable tasks.
@@ -90,7 +90,7 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> None
             to be linked in the metadata.
 
     Returns:
-        None
+        str: The filename of the saved processed note.
     """
     body: str = f"## Summary\n{analysis.summary}\n\n"
 
@@ -121,6 +121,8 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> None
 
     async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
         await f.write(note_content)
+
+    return file_path.name
 
 
 async def read_note_content(filepath: str) -> str | None:
