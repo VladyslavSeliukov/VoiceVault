@@ -5,14 +5,18 @@ from aiogram import Bot, Dispatcher
 from core.broker import broker
 from core.config import settings
 from core.logger import logger
+from core.middlewares import DbSessionMiddleware
 from modules.basic.handlers import router as basic
+from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
+from modules.telegram.ui import setup_bot_ui
 
 
-async def on_startup() -> None:
+async def on_startup(bot: Bot) -> None:
     """Execute tasks before the bot starts polling."""
     logger.info("[bot] Starting Telegram Bot...")
     await broker.startup()
+    await setup_bot_ui(bot)
 
 
 async def on_shutdown() -> None:
@@ -33,8 +37,11 @@ async def main() -> None:
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
+    dp.update.middleware(DbSessionMiddleware())
+
     dp.include_router(basic)
     dp.include_router(voice)
+    dp.include_router(tags)
 
     await dp.start_polling(bot)
 

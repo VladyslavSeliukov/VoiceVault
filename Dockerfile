@@ -26,6 +26,8 @@ ENV PYTHONUNBUFFERED=1
 COPY --from=builder /opt/venv /opt/venv
 
 COPY --chown=appuser:appgroup src ./src
+COPY --chown=appuser:appgroup alembic.ini ./
+COPY --chown=appuser:appgroup migrations ./migrations
 
 USER appuser
 

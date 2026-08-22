@@ -1,0 +1,16 @@
+x-src-volume: &src-volume "./src:/app/src"
+
+services:
+  bot:
+    volumes:
+      - *src-volume
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
+
+  worker:
+    volumes:
+      - *src-volume
+
+  scheduler:
+    volumes:
+      - *src-volume
