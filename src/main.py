@@ -7,6 +7,7 @@ from core.config import settings
 from core.logger import logger
 from core.middlewares import DbSessionMiddleware
 from modules.basic.handlers import router as basic
+from modules.telegram.handlers.rag import router as rag
 from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
 from modules.telegram.ui import setup_bot_ui
@@ -42,6 +43,7 @@ async def main() -> None:
     dp.include_router(basic)
     dp.include_router(voice)
     dp.include_router(tags)
+    dp.include_router(rag)
 
     await dp.start_polling(bot)
 
