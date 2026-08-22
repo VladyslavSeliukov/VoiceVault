@@ -7,9 +7,11 @@ from aiogram.types import ReplyKeyboardRemove
 
 from core.broker import broker
 from core.config import settings
+from core.db import AsyncSessionLocal
 from core.logger import logger
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
+from modules.tags.service import get_all_tags
 from modules.telegram.keyboards.voice import build_flush_keyboard
 from modules.voice.buffer import add_to_buffer, check_and_set_idempotency
 from modules.voice.stt import transcribe
@@ -45,10 +47,26 @@ async def process_voice_task(
     logger.info(f"[worker] Starting STT task for file_id={file_id[:8]}...")
 
     is_new = await check_and_set_idempotency(f"stt:{file_id}")
+
+    is_new = True  # TODO: remove after the app implementation
+
     if not is_new:
         logger.warning(
             f"[worker] Duplicate STT task detected for file_id={file_id[:8]}. Skipping."
         )
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            try:
+                await bot.delete_message(chat_id=user_id, message_id=status_message_id)
+            except Exception as e:
+                logger.warning(f"[worker] Couldn't delete status message: {e}")
+
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text="⚠️ Duplicate audio detected. Skipped.",
+                )
+            except Exception as e:
+                logger.error(f"[worker] Failed to send duplicate warning: {e}")
         return
 
     try:
@@ -61,6 +79,21 @@ async def process_voice_task(
 
         if not clean_text:
             logger.warning(f"[worker] Empty transcript for {file_id[:8]}. Aborting.")
+            async with Bot(token=settings.BOT_TOKEN) as bot:
+                try:
+                    await bot.delete_message(
+                        chat_id=user_id, message_id=status_message_id
+                    )
+                except Exception as e:
+                    logger.warning(f"[worker] Couldn't delete status message: {e}")
+
+                try:
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text="⚠️ Audio is empty or contains no speech.",
+                    )
+                except Exception as e:
+                    logger.error(f"[worker] Failed to send empty warning: {e}")
             return
 
         queue_length = await add_to_buffer(user_id=user_id, transcript=clean_text)
@@ -73,13 +106,17 @@ async def process_voice_task(
                     text=f"✅ Transcribed and buffered. In queue: {queue_length} "
                     f"message(s).",
                 )
-            except Exception:
+            except Exception as e:
+                logger.warning(f"[worker] Failed to edit status message: {e}")
                 try:
                     await bot.delete_message(
                         chat_id=user_id, message_id=status_message_id
                     )
-                except Exception:
-                    pass
+                except Exception as delete_err:
+                    logger.error(
+                        f"[worker] Failed to delete status message: {delete_err}"
+                    )
+
                 await bot.send_message(
                     chat_id=user_id,
                     text=f"✅ Transcribed and buffered. In queue: {queue_length} "
@@ -138,6 +175,8 @@ async def process_llm_note_task(
     transcript_hash = hashlib.md5(combined_transcript.encode("utf-8")).hexdigest()
     is_new = await check_and_set_idempotency(f"llm:{transcript_hash}")
 
+    is_new = True  # TODO: remove after the app implementation
+
     if not is_new:
         logger.warning(
             f"[worker] Duplicate LLM task detected for user {user_id}. Skipping."
@@ -147,30 +186,29 @@ async def process_llm_note_task(
     logger.info(f"[worker] Starting LLM task for user {user_id}...")
 
     try:
-        analysis = await analyze_transcript(transcript=combined_transcript)
+        async with AsyncSessionLocal() as session:
+            allowed_tags = await get_all_tags(session)
+
+        analysis = await analyze_transcript(
+            transcript=combined_transcript, allowed_tags=allowed_tags
+        )
         await save_processed_note(analysis=analysis, raw_filename=raw_filename)
 
         success_text = "✅ Note processed and successfully saved to Obsidian!"
         async with Bot(token=settings.BOT_TOKEN) as bot:
-            if status_message_id:
+            if status_message_id is not None:
                 try:
-                    await bot.edit_message_text(
-                        chat_id=user_id, message_id=status_message_id, text=success_text
+                    await bot.delete_message(
+                        chat_id=user_id, message_id=status_message_id
                     )
                 except Exception:
-                    try:
-                        await bot.delete_message(
-                            chat_id=user_id, message_id=status_message_id
-                        )
-                    except Exception:
-                        pass
-                    await bot.send_message(chat_id=user_id, text=success_text)
-            else:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=success_text,
-                    reply_markup=ReplyKeyboardRemove(),
-                )
+                    pass
+
+            await bot.send_message(
+                chat_id=user_id,
+                text=success_text,
+                reply_markup=ReplyKeyboardRemove(),
+            )
 
         logger.info(
             f"[worker] Successfully processed and saved note for user {user_id}."
@@ -178,11 +216,21 @@ async def process_llm_note_task(
 
     except Exception as e:
         logger.error(f"[worker] Fatal error in LLM task: {e}\n{traceback.format_exc()}")
-        if status_message_id:
-            async with Bot(token=settings.BOT_TOKEN) as bot:
-                await bot.edit_message_text(
+
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            if status_message_id is not None:
+                try:
+                    await bot.delete_message(
+                        chat_id=user_id, message_id=status_message_id
+                    )
+                except Exception:
+                    pass
+
+            try:
+                await bot.send_message(
                     chat_id=user_id,
-                    message_id=status_message_id,
-                    text="❌ Fatal error in LLM task.",
+                    text="❌ LLM processing failed. Check logs.",
                 )
-        raise e
+
+            except Exception as send_err:
+                logger.error(f"[worker] Failed to send error msg: {send_err}")
