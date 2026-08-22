@@ -180,6 +180,12 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       summaries are identified, the pipeline will dynamically resolve their `source`
       YAML frontmatter links to fetch the corresponding `RAW` transcripts, feeding the
       LLM the complete, uncompressed context for highly detailed answer generation.
+    - [ ] **Phase 12.13: Global Fallback Handler.** Implement a catch-all routing
+      mechanism at the base of the dispatcher hierarchy (`unhandled_message_fallback`).
+      Previously, the bot silently ignored unrecognized inputs — such as arbitrary text,
+      typos in commands — leaving the user without clear feedback. This handler ensures
+      the system gracefully catches all unhandled updates and explicitly guides the user
+      back to supported interaction formats.
 
 ---
 
