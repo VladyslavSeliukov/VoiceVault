@@ -120,11 +120,12 @@ jobs:
 
       POSTGRES_URL: "postgresql+psycopg://testvault:testvault@testvault:5432/testvault"
 
-
       QDRANT_HOST: "qdrant"
       QDRANT_PORT: 6333
       QDRANT_COLLECTION_NAME: "obsidian_notes"
       QDRANT_VECTOR_SIZE: 1024
+      QDRANT_SEARCH_LIMIT: 3
+      QDRANT_SCORE_THRESHOLD: 0.5
 
     steps:
       - name: Checkout code
