@@ -5,7 +5,9 @@ from aiogram import Bot, Dispatcher
 from core.broker import broker
 from core.config import settings
 from core.logger import logger
+from core.middlewares import DbSessionMiddleware
 from modules.basic.handlers import router as basic
+from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
 
 
@@ -33,8 +35,11 @@ async def main() -> None:
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
+    dp.update.middleware(DbSessionMiddleware())
+
     dp.include_router(basic)
     dp.include_router(voice)
+    dp.include_router(tags)
 
     await dp.start_polling(bot)
 
