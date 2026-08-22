@@ -98,8 +98,11 @@ jobs:
       HOST_OBSIDIAN_DIR: "/path/to/your/obsidian/folder"
       OBSIDIAN_DIR: "/app/storage/obsidian"
 
-      LLM_API_BASE: "http://testhost:1234/v1"
+      OLLAMA_API_BASE: "http://testhost:1234/v1"
       LLM_MODEL: "test-9b-llm"
+      LLM_NUM_CTX: 4096
+      EMBEDDING_MODEL: "your-embedding:0.6b"
+      OLLAMA_KEEP_ALIVE: "5m"
 
       REDIS_URL: "redis://localhost:6379/0"
       FLUSH_TIMEOUT_MINUTES: 60
@@ -108,6 +111,20 @@ jobs:
       RABBITMQ_USER: "guest"
       RABBITMQ_PASS: "guest"
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+
+      POSTGRES_USER: "testvault"
+      POSTGRES_PASSWORD: "testvault"
+      POSTGRES_DB: "testvault"
+      POSTGRES_HOST: "postgres"
+      POSTGRES_PORT: 5432
+
+      POSTGRES_URL: "postgresql+psycopg://testvault:testvault@testvault:5432/testvault"
+
+
+      QDRANT_HOST: "qdrant"
+      QDRANT_PORT: 6333
+      QDRANT_COLLECTION_NAME: "obsidian_notes"
+      QDRANT_VECTOR_SIZE: 1024
 
     steps:
       - name: Checkout code

@@ -20,8 +20,12 @@ class Settings(BaseSettings):
         HOST_OBSIDIAN_DIR: The path to the Obsidian vault directory on the host machine.
         OBSIDIAN_DIR: The target path where Obsidian notes are stored.
 
-        LLM_API_BASE: The base URL for the LLM API endpoint.
-        LLM_MODEL: The name/identifier of the LLM model used for text processing.
+        OLLAMA_API_BASE: The base URL for communicating with the local Ollama API.
+        LLM_MODEL: The name of the local LLM model used for text generation.
+        LLM_NUM_CTX: The size of the context window in tokens for LLM requests.
+        EMBEDDING_MODEL: The name of the model used to generate text embeddings.
+        OLLAMA_KEEP_ALIVE: The duration to keep the LLM/embedding model loaded in memory
+            after requests.
 
         REDIS_URL: The connection string for the Redis instance used for buffer state.
         FLUSH_TIMEOUT_MINUTES: The inactivity duration in minutes before triggering an
@@ -32,9 +36,24 @@ class Settings(BaseSettings):
         RABBITMQ_USER: The username for authenticating with the RabbitMQ broker.
         RABBITMQ_PASS: The password for authenticating with the RabbitMQ broker.
 
+        POSTGRES_USER: The username for authenticating with the PostgreSQL database.
+        POSTGRES_PASSWORD: The password for authenticating with the PostgreSQL database.
+        POSTGRES_DB: The name of the PostgreSQL database to connect to.
+        POSTGRES_HOST: The hostname or IP address of the PostgreSQL server.
+        POSTGRES_PORT: The port number on which the PostgreSQL server operates.
+
+        QDRANT_HOST: The hostname or IP address of the Qdrant vector database server.
+        QDRANT_PORT: The port number on which the Qdrant HTTP service operates.
+        QDRANT_COLLECTION_NAME: The name of the collection in Qdrant where note
+            embeddings are stored.
+        QDRANT_VECTOR_SIZE: The vector dimension size configured for the Qdrant
+            collection.
+
     Properties:
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
         RABBITMQ_URL: Dynamically constructs the AMQP connection string for RabbitMQ.
+        POSTGRES_URL: Dynamically constructs the async connection string for PostgreSQL
+        via psycopg3.
     """
 
     ENVIRONMENT: str
@@ -52,8 +71,11 @@ class Settings(BaseSettings):
     HOST_OBSIDIAN_DIR: str
     OBSIDIAN_DIR: str = "/app/storage/obsidian"
 
-    LLM_API_BASE: str = "http://localhost:1234/v1"
+    OLLAMA_API_BASE: str = "http://host.docker.internal:11434/api"
     LLM_MODEL: str
+    LLM_NUM_CTX: int = 8192
+    EMBEDDING_MODEL: str
+    OLLAMA_KEEP_ALIVE: str = "5m"
 
     REDIS_URL: str = "redis://localhost:6379/0"
     FLUSH_TIMEOUT_MINUTES: int = 60
@@ -61,6 +83,17 @@ class Settings(BaseSettings):
 
     RABBITMQ_USER: str
     RABBITMQ_PASS: str
+
+    POSTGRES_HOST: str = "postgres"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+
+    QDRANT_HOST: str = "qdrant"
+    QDRANT_PORT: int = 6333
+    QDRANT_COLLECTION_NAME: str = "obsidian_notes"
+    QDRANT_VECTOR_SIZE: int = 1024
 
     @property
     def WHISPER_URL(self) -> str:
@@ -71,6 +104,11 @@ class Settings(BaseSettings):
     def RABBITMQ_URL(self) -> str:
         """Dynamically constructs the AMQP connection string for RabbitMQ."""
         return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASS}@rabbitmq:5672/"
+
+    @property
+    def POSTGRES_URL(self) -> str:
+        """Dynamically constructs the connection string for PostgreSQL via psycopg3."""
+        return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 
 settings = Settings()
