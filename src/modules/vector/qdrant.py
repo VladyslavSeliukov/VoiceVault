@@ -54,3 +54,52 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
             )
         ],
     )
+
+
+async def search_vectors(
+    query_vector: list[float],
+    limit: int | None = None,
+    score_threshold: float | None = None,
+) -> list[str]:
+    """Executes a semantic vector search against the Qdrant database.
+
+    Queries the configured collection for points that are semantically closest
+    to the provided query vector using cosine similarity. Dynamically applies
+    search limits and minimum score thresholds, falling back to the global
+    environment settings if specific overrides are not provided. Extracts and
+    returns the 'filepath' from the payload of the matching points.
+
+    Args:
+        query_vector (list[float]): The numerical embedding array representing
+            the user's search query.
+        limit (int | None, optional): The maximum number of results to retrieve.
+            Defaults to None (uses settings.QDRANT_SEARCH_LIMIT).
+        score_threshold (float | None, optional): The minimum similarity score
+            required for a match to be considered relevant. Defaults to None
+            (uses settings.QDRANT_SCORE_THRESHOLD).
+
+    Returns:
+        list[str]: A list of relative file paths corresponding to the notes
+            that semantically match the query.
+    """
+    actual_limit = limit if limit is not None else settings.QDRANT_SEARCH_LIMIT
+    actual_threshold = (
+        score_threshold
+        if score_threshold is not None
+        else settings.QDRANT_SCORE_THRESHOLD
+    )
+
+    response = await qdrant_client.query_points(
+        collection_name=settings.QDRANT_COLLECTION_NAME,
+        query=query_vector,
+        limit=actual_limit,
+        score_threshold=actual_threshold,
+        with_payload=True,
+    )
+
+    filepaths: list[str] = []
+    for point in response.points:
+        if point.payload and "filepath" in point.payload:
+            filepaths.append(str(point.payload["filepath"]))
+
+    return filepaths
