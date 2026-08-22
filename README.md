@@ -61,14 +61,17 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
     - [ ] **Phase 11.1: Comprehensive Review & Refactoring.** Conduct a full project
       audit. Eliminate dead code, unify code conventions, optimize imports, and ensure
       strict type hinting and modular isolation across all services.
-        - докстринг
-        - таймауты на ии вызовах
-        - логирование
-        - обработку ошибок
-        - в целом посмотреть докер компоуз, чекнуть depends_on, закрыть порты и открыть
-          в овверрайде (короче, сделать прям здравый прод и овверрдайд для разработки и
-          обычный для прода)
-        - может добавить что-то в ci cd
+        - [ ] **11.1.1: Docstring Standardization.**
+        - [ ] **11.1.2: AI Service Request Timeouts.**
+        - [ ] **11.1.3: Propper Logging.**
+        - [ ] **11.1.4: Global Error Handling.**
+        - [ ] **11.1.5: Docker Configuration & Environment Separation** (Production vs.
+          Override profiles, port binding review, `depends_on` strictness).
+        - [ ] **11.1.6: CI/CD Pipeline Enhancements.**
+        - [ ] **11.1.7: Telegram UI Formatting & Parse Mode.** Audit all bot replies to
+          ensure proper rendering of text styles (e.g., bold text(<b>), lists).
+          Configure a global ParseMode (preferably HTML) and verify that no raw markup
+          elements (like `**` or `__`) leak into the user interface.
     - [ ] **Phase 11.2: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
@@ -90,16 +93,42 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       prevents background memory monopolization on the host working machine, effectively
       mimicking the auto-unload behavior of tools like LM Studio/Ollama for isolated
       processes like Whisper.
-    - добавить прослойку для выбора lm студио (для mlx моделей) и олама (для gguf и
-      эмбедингов)
-    - убрать изменения клавиатуры. только удаление и новое сообщение
-    - убрать клавиатуру из первого собщения о очереди
-    - сделать папку ai под ллм и эмбединги
-    - перенести basic/handlers.py к другим хендлерам тг
-    - jitler
-    - поддержка текстовых сообщений
-    - сделать полноценный exceptions.py
-    - режим ночного анализа
+    - [ ] **Phase 12.3: AI Provider Routing Middleware.** Implement a routing layer to
+      dynamically switch between local AI providers based on model architecture.
+      Functionally, route MLX model requests to LM Studio and GGUF/Embedding requests
+      to Ollama. Technically, this involves abstracting the LLM client interface and
+      configuring environment-based routing rules.
+    - [ ] **Phase 12.4: Telegram UI: Strict Message Replacement.** Refactor the
+      inline keyboard handling. Replace `edit_message` operations with a strict
+      "delete and send new" (maybe, implement dedicated function for this) pattern
+      to prevent Telegram API state mismatches and UI inconsistencies during rapid user
+      interactions.
+    - [ ] **Phase 12.5: Telegram UI: Clean Queue Notifications.** Remove redundant
+      reply keyboards from the initial "added to queue" notification messages. This
+      keeps the chat history visually clean and prevents accidental duplicate task
+      submissions while the user waits for processing.
+    - [ ] **Phase 12.6: Architectural Isolation: AI Module.** Extract all LLM
+      generation, prompting, and vector embedding logic into a dedicated, isolated
+      `ai` directory to strictly separate ML infrastructure from business logic.
+    - [ ] **Phase 12.7: Architectural Consolidation: Handlers.** Migrate the legacy
+      `basic/handlers.py` into the unified `telegram/handlers` directory. This
+      establishes a single source of truth for all Telegram routing and interactions.
+    - [ ] **Phase 12.8: Scheduled Task Jitter.** Introduce randomized delay intervals
+      (jitter) to cron jobs and retry mechanisms. This prevents thundering herd
+      problems, smoothing out CPU spikes when multiple scheduled tasks attempt to
+      hit the local AI services simultaneously.
+    - [ ] **Phase 12.9: Text Message Processing Pipeline.** Expand the bot's input
+      capabilities by adding a dedicated pipeline for standard text messages. This
+      routes text directly to the AI formatting and vectorization queues, bypassing
+      the Whisper STT middleware entirely.
+    - [ ] **Phase 12.10: Centralized Exception Registry.** Create a comprehensive
+      `exceptions.py` module containing custom, domain-specific exception classes.
+      This enforces strict typing, robust error handling, and precise routing within
+      the Taskiq workers.
+    - [ ] **Phase 12.11: Nightly Vault Analysis Mode.** Implement a scheduled batch
+      processing job for off-peak hours. This agentic routine will thoroughly analyze
+      the Obsidian vault, map connections between notes, and generate daily insights
+      without impacting active daytime hardware resources.
 
 ---
 
