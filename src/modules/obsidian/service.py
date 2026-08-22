@@ -121,3 +121,31 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> None
 
     async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
         await f.write(note_content)
+
+
+async def read_note_content(filepath: str) -> str | None:
+    """Asynchronously reads the text content of a processed note from the vault.
+
+    Resolves the target file path within the 'Processed' directory of the Obsidian
+    vault. Safely handles missing files or read errors to prevent the RAG pipeline
+    from crashing due to filesystem inconsistencies.
+
+    Args:
+        filepath (str): The name or relative path of the markdown file to read.
+
+    Returns:
+        str | None: The full text content of the markdown file, or None if the
+            file does not exist, is not a file, or cannot be read.
+    """
+    full_path = Path(settings.OBSIDIAN_DIR) / "Processed" / filepath
+
+    if not full_path.exists() or not full_path.is_file():
+        logger.warning(f"[obsidian] File not found or not a file: {full_path}")
+        return None
+
+    try:
+        async with aiofiles.open(full_path, encoding="utf-8") as file:
+            return await file.read()
+    except Exception as e:
+        logger.error(f"[obsidian] Error reading file {full_path}: {e}")
+        return None
