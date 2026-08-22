@@ -6,7 +6,7 @@ from pydantic import BaseModel, ValidationError
 
 from core.config import settings
 from core.logger import logger
-from modules.llm.prompts import EXTRACT_JSON_SYSTEM_PROMPT
+from modules.llm.prompts import EXTRACT_JSON_SYSTEM_PROMPT, RAG_SYSTEM_PROMPT
 from modules.llm.schemas import NoteAnalysis
 
 T = TypeVar("T", bound=BaseModel)
@@ -123,7 +123,7 @@ async def extract_structured_data[T: BaseModel](
     )
 
     content: str = llm_response["content"]
-    reasoning: str = llm_response.get("reasoning_content") or ""
+    reasoning: str = llm_response.get("reasoning_content", 0) or ""
 
     if not content.strip():
         if reasoning.strip():
@@ -168,3 +168,44 @@ async def analyze_transcript(transcript: str, allowed_tags: list[str]) -> NoteAn
         system_prompt_template=EXTRACT_JSON_SYSTEM_PROMPT,
         allowed_tags=allowed_tags,
     )
+
+
+async def generate_rag_response(query: str, context: str) -> str:
+    """Generates a contextual answer using the local LLM based on retrieved notes.
+
+    Constructs a prompt combining the user's query with the aggregated context
+    from the Obsidian vault and sends it to the LLM. If the model fails to
+    return standard content (e.g., due to formatting constraints), it attempts
+    to fall back to the internal reasoning content.
+
+    Args:
+        query (str): The user's specific question to be answered.
+        context (str): The aggregated text content from the relevant markdown notes.
+
+    Returns:
+        str: The final generated response from the LLM, or an error message string
+            if both the content and reasoning blocks are empty.
+
+    Raises:
+        httpx.HTTPError: If the network request to the local Ollama server fails.
+        KeyError: If the API response structure is malformed or unexpected.
+    """
+    system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
+
+    llm_response = await _call_llm(
+        system_prompt=system_prompt, user_prompt=query, temperature=0.1
+    )
+
+    content: str = llm_response["content"]
+    reasoning: str = llm_response["reasoning_content"]
+
+    if not content.strip():
+        if reasoning.strip():
+            logger.warning(
+                "[llm] RAG content is empty. Falling back to reasoning_content."
+            )
+            content = reasoning
+        else:
+            return "❌ LLM failed to generate a response."
+
+    return content.strip()
