@@ -21,6 +21,7 @@ class NoteAnalysis(BaseModel):
     )
     tags: list[str] = Field(
         default_factory=list,
-        description="List of 2-4 relevant context tags for Obsidian "
-        "(lowercase, without the # symbol).",
+        description="List of context tags for Obsidian. "
+        "CRITICAL: MUST be chosen exclusively from the allowed tags provided in the "
+        "system instructions.It's okay not to choose anything. Do not creat new tags.",
     )
