@@ -96,7 +96,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       to store custom predefined tags. Add Telegram commands to manage this list
       dynamically. Update the LLM system prompt to fetch and enforce these allowed
       topics during classification.
-- [ ] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
+- [x] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
 - [ ] **Phase 11: Technical Debt Resolution.** Fast-paced development naturally leaves
@@ -173,6 +173,19 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       processing job for off-peak hours. This agentic routine will thoroughly analyze
       the Obsidian vault, map connections between notes, and generate daily insights
       without impacting active daytime hardware resources.
+    - [ ] **Phase 12.12: Small-to-Big RAG Retrieval.** Upgrade the vector search
+      architecture to implement the "Small-to-Big" retrieval pattern. The system will
+      perform semantic searches exclusively against the highly structured, semantically
+      dense `Processed` notes to maximize retrieval precision. Once the most relevant
+      summaries are identified, the pipeline will dynamically resolve their `source`
+      YAML frontmatter links to fetch the corresponding `RAW` transcripts, feeding the
+      LLM the complete, uncompressed context for highly detailed answer generation.
+    - [ ] **Phase 12.13: Global Fallback Handler.** Implement a catch-all routing
+      mechanism at the base of the dispatcher hierarchy (`unhandled_message_fallback`).
+      Previously, the bot silently ignored unrecognized inputs — such as arbitrary text,
+      typos in commands — leaving the user without clear feedback. This handler ensures
+      the system gracefully catches all unhandled updates and explicitly guides the user
+      back to supported interaction formats.
 
 ---
 

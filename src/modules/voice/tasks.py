@@ -13,6 +13,7 @@ from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
 from modules.tags.service import get_all_tags
 from modules.telegram.keyboards.voice import build_flush_keyboard
+from modules.vector.cron import sync_vault_to_qdrant_task
 from modules.voice.buffer import add_to_buffer, check_and_set_idempotency
 from modules.voice.stt import transcribe
 
@@ -192,9 +193,17 @@ async def process_llm_note_task(
         analysis = await analyze_transcript(
             transcript=combined_transcript, allowed_tags=allowed_tags
         )
-        await save_processed_note(analysis=analysis, raw_filename=raw_filename)
+        saved_filename = await save_processed_note(
+            analysis=analysis, raw_filename=raw_filename
+        )
 
-        success_text = "✅ Note processed and successfully saved to Obsidian!"
+        try:
+            if saved_filename:
+                logger.info("[worker] Triggering real-time RAG indexing...")
+                await sync_vault_to_qdrant_task.kiq()
+        except Exception as e:
+            logger.error(f"[worker] Failed to trigger vector sync: {e}")
+
         async with Bot(token=settings.BOT_TOKEN) as bot:
             if status_message_id is not None:
                 try:
@@ -206,7 +215,7 @@ async def process_llm_note_task(
 
             await bot.send_message(
                 chat_id=user_id,
-                text=success_text,
+                text="✅ Note processed and successfully saved to Obsidian!",
                 reply_markup=ReplyKeyboardRemove(),
             )
 

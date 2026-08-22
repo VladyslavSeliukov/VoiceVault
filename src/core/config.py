@@ -48,6 +48,11 @@ class Settings(BaseSettings):
             embeddings are stored.
         QDRANT_VECTOR_SIZE: The vector dimension size configured for the Qdrant
             collection.
+        QDRANT_SEARCH_LIMIT: The maximum number of semantically similar notes
+            to retrieve from the database during a single RAG query.
+        QDRANT_SCORE_THRESHOLD: The minimum cosine similarity score (0.0 to 1.0)
+            required for a retrieved vector to be considered a relevant match,
+            filtering out unrelated context.
 
     Properties:
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
@@ -94,6 +99,8 @@ class Settings(BaseSettings):
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION_NAME: str = "obsidian_notes"
     QDRANT_VECTOR_SIZE: int = 1024
+    QDRANT_SEARCH_LIMIT: int = 3
+    QDRANT_SCORE_THRESHOLD: float = 0.5
 
     @property
     def WHISPER_URL(self) -> str:

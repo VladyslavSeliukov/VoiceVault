@@ -12,7 +12,9 @@ from modules.vector.embeddings import generate_embedding
 from modules.vector.qdrant import init_qdrant, upsert_note_vector
 
 
-@broker.task(task_name="sync_vault_to_qdrant", schedule=[{"cron": "*/15 * * * *"}])
+@broker.task(
+    task_name="sync_vault_to_qdrant", schedule=[{"cron": "* * * * *"}]
+)  # TODO: change to "*/15 * * * *" after basic app implementation
 async def sync_vault_to_qdrant_task() -> None:
     """Synchronize raw Obsidian markdown files with the Qdrant vector database.
 
@@ -38,7 +40,7 @@ async def sync_vault_to_qdrant_task() -> None:
     logger.info("[vector] Starting scheduled Obsidian vault synchronization...")
     await init_qdrant()
 
-    vault_path = Path(settings.OBSIDIAN_DIR) / "RAW"
+    vault_path = Path(settings.OBSIDIAN_DIR) / "Processed"
 
     async with AsyncSessionLocal() as session:
         for file_path in vault_path.rglob("*.md"):
