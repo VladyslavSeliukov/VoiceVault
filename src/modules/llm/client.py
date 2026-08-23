@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any, TypeVar
 
 import httpx
@@ -38,10 +39,9 @@ async def _call_llm(
                 from the API.
 
     Raises:
-        httpx.HTTPError: If the network request fails or returns an
-            error status code.
-        KeyError: If the API response structure is malformed or
-            unexpected.
+        httpx.HTTPStatusError: If the API returns a 4xx or 5xx error status code.
+        httpx.RequestError: If a network issue or timeout occurs during the request.
+        KeyError: If the API response structure is malformed or unexpected.
     """
     payload: dict[str, Any] = {
         "model": settings.LLM_MODEL,
@@ -59,6 +59,11 @@ async def _call_llm(
 
     async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_LLM) as client:
         try:
+            logger.info(
+                f"[llm] Sending request to Ollama (model: {settings.LLM_MODEL})..."
+            )
+            start_time = time.perf_counter()
+
             response = await client.post(
                 f"{settings.OLLAMA_API_BASE}/chat",
                 json=payload,
@@ -66,20 +71,29 @@ async def _call_llm(
             )
             response.raise_for_status()
 
+            elapsed_time = time.perf_counter() - start_time
+
             response_data = response.json()
             message: dict[str, Any] = response_data.get("message", {})
+
+            logger.info(
+                f"[llm] Successfully received response from Ollama in "
+                f"{elapsed_time:.2f}s."
+            )
 
             return {
                 "content": message.get("content") or "",
                 "reasoning_content": message.get("reasoning_content") or "",
                 "raw_message": message,
             }
-
-        except httpx.HTTPError as e:
-            logger.error(f"[llm] HTTP request failed: {e}")
+        except httpx.HTTPStatusError:
+            logger.exception("[llm] Ollama returned an error status code.")
             raise
-        except KeyError as e:
-            logger.error(f"[llm] Unexpected API response structure: {e}")
+        except httpx.RequestError:
+            logger.exception("[llm] Failed to connect to Ollama or request timed out.")
+            raise
+        except KeyError:
+            logger.exception("[llm] Unexpected API response structure from Ollama.")
             raise
 
 
@@ -139,12 +153,11 @@ async def extract_structured_data[T: BaseModel](
 
     try:
         return response_model.model_validate_json(clean_content)
-    except ValidationError as e:
-        logger.error(
-            f"[llm] Pydantic validation failed for {response_model.__name__}: "
-            f"{e.errors()}"
+    except ValidationError:
+        logger.exception(
+            f"[llm] Pydantic validation failed for {response_model.__name__}."
         )
-        logger.debug(f"[llm] Raw LLM output: {content}")
+        logger.warning(f"[llm] Raw invalid JSON from LLM: \n{clean_content}")
         raise
 
 
@@ -202,6 +215,9 @@ async def generate_rag_response(query: str, context: str) -> str:
             )
             content = reasoning
         else:
+            logger.error(
+                "[llm] RAG generation failed: both content and reasoning are empty."
+            )
             return "❌ LLM failed to generate a response."
 
     return content.strip()

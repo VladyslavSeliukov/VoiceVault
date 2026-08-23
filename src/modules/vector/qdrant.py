@@ -15,17 +15,23 @@ async def init_qdrant() -> None:
     creates a new collection using the vector dimensions and distance metric
     (Cosine) defined in the application environment settings.
     """
-    exists = await qdrant_client.collection_exists(settings.QDRANT_COLLECTION_NAME)
+    try:
+        exists = await qdrant_client.collection_exists(settings.QDRANT_COLLECTION_NAME)
 
-    if not exists:
-        await qdrant_client.create_collection(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            vectors_config=models.VectorParams(
-                size=settings.QDRANT_VECTOR_SIZE,
-                distance=models.Distance.COSINE,
-            ),
-        )
-        logger.info(f"[qdrant] Created collection '{settings.QDRANT_COLLECTION_NAME}'")
+        if not exists:
+            await qdrant_client.create_collection(
+                collection_name=settings.QDRANT_COLLECTION_NAME,
+                vectors_config=models.VectorParams(
+                    size=settings.QDRANT_VECTOR_SIZE,
+                    distance=models.Distance.COSINE,
+                ),
+            )
+            logger.info(
+                f"[qdrant] Created collection '{settings.QDRANT_COLLECTION_NAME}'"
+            )
+    except Exception:
+        logger.exception("[qdrant] Failed to initialize Qdrant collection.")
+        raise
 
 
 async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
@@ -43,14 +49,18 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
     """
     point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, filepath))
 
-    await qdrant_client.upsert(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
-        points=[
-            models.PointStruct(
-                id=point_id, vector=vector, payload={"filepath": filepath}
-            )
-        ],
-    )
+    try:
+        await qdrant_client.upsert(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            points=[
+                models.PointStruct(
+                    id=point_id, vector=vector, payload={"filepath": filepath}
+                )
+            ],
+        )
+    except Exception:
+        logger.exception(f"[qdrant] Failed to upsert vector for '{filepath}'.")
+        raise
 
 
 async def search_vectors(
@@ -86,17 +96,21 @@ async def search_vectors(
         else settings.QDRANT_SCORE_THRESHOLD
     )
 
-    response = await qdrant_client.query_points(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
-        query=query_vector,
-        limit=actual_limit,
-        score_threshold=actual_threshold,
-        with_payload=True,
-    )
+    try:
+        response = await qdrant_client.query_points(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            query=query_vector,
+            limit=actual_limit,
+            score_threshold=actual_threshold,
+            with_payload=True,
+        )
 
-    filepaths: list[str] = []
-    for point in response.points:
-        if point.payload and "filepath" in point.payload:
-            filepaths.append(str(point.payload["filepath"]))
+        filepaths: list[str] = []
+        for point in response.points:
+            if point.payload and "filepath" in point.payload:
+                filepaths.append(str(point.payload["filepath"]))
 
-    return filepaths
+        return filepaths
+    except Exception:
+        logger.exception("[qdrant] Failed to execute vector search.")
+        raise
