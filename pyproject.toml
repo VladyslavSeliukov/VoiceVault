@@ -67,6 +67,8 @@ ignore = [
     "D104",
     "D106",
     "D107",
+    "T20",
+    "TRY",
 ]
 
 [tool.ruff.lint.isort]

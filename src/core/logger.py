@@ -78,28 +78,23 @@ class ConsoleFormatter(logging.Formatter):
         return formatter.format(record)
 
 
-def get_logger(name: str) -> logging.Logger:
-    """Retrieve or create a globally configured logger instance.
+def setup_logging() -> None:
+    """Configures the root logger and silences noisy third-party libraries.
 
-    Prevents the duplication of handlers on multiple calls and dynamically
-    sets the log level based on the application's environment settings.
-
-    Args:
-        name: The name of the logger (typically `__name__` of the calling module).
-
-    Returns:
-        A configured standard Python Logger instance.
+    Sets the global log level based on environment settings and applies either a
+    structured JSON formatter for production or a console formatter for local dev.
+    It also restricts verbose external dependencies to keep business logs clean.
     """
-    logger = logging.getLogger(name)
-
-    if logger.handlers:
-        return logger
-
     try:
-        log_level = settings.LOG_LEVEL.upper()
-        logger.setLevel(getattr(logging, log_level))
+        log_level = getattr(logging, settings.LOG_LEVEL.upper())
     except AttributeError:
-        logger.setLevel(logging.INFO)
+        log_level = logging.INFO
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    if root_logger.hasHandlers():
+        root_logger.handlers.clear()
 
     handler = logging.StreamHandler(sys.stdout)
 
@@ -108,11 +103,29 @@ def get_logger(name: str) -> logging.Logger:
     else:
         handler.setFormatter(ConsoleFormatter())
 
-    logger.addHandler(handler)
+    root_logger.addHandler(handler)
 
-    logger.propagate = False
+    noisy_loggers = [
+        # HTTP & Vector DB
+        "httpx",
+        "httpcore",
+        "qdrant_client",
+        # Telegram UI
+        "aiogram",
+        "aiogram.event",
+        # Message Broker & Workers
+        "taskiq",
+        "aio_pika",
+        "aiormq",
+        # Database
+        "sqlalchemy.engine",
+        "sqlalchemy.pool",
+        "alembic",
+    ]
+    for name in noisy_loggers:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
-    return logger
 
+setup_logging()
 
-logger = get_logger("voicevault")
+logger = logging.getLogger("voicevault")

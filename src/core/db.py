@@ -39,9 +39,9 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-        except Exception as e:
+        except Exception:
             await session.rollback()
-            logger.error(f"[db] Session rollback due to error: {e}")
+            logger.exception("[db] Session rollback due to unhandled error")
             raise
         finally:
             await session.close()
