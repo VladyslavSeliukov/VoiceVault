@@ -35,6 +35,10 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
         return
 
     query = command.args
+
+    user_id = message.from_user.id if message.from_user else "unknown"
+    logger.info(f"[rag] Started RAG pipeline for user={user_id}")
+
     status_msg = await message.answer("🔍 Searching the knowledge base...")
 
     try:
@@ -70,6 +74,6 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
 
         await status_msg.edit_text(final_text)
 
-    except Exception as e:
-        logger.error(f"[rag] Error processing query: {e}")
+    except Exception:
+        logger.exception("[rag] Fatal error processing RAG query")
         await status_msg.edit_text("❌ An error occurred while generating the answer.")

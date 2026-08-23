@@ -47,12 +47,18 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         "⏳ Audio sent to STT queue. Waiting for Whisper...", reply_markup=markup
     )
 
-    await process_voice_task.kiq(
-        file_id=voice.file_id,
-        b64_audio=b64_audio,
-        user_id=message.from_user.id,
-        status_message_id=status_msg.message_id,
-    )
+    try:
+        await process_voice_task.kiq(
+            file_id=voice.file_id,
+            b64_audio=b64_audio,
+            user_id=message.from_user.id,
+            status_message_id=status_msg.message_id,
+        )
+    except Exception:
+        logger.exception("[voice] Failed to push audio processing task to broker")
+        await status_msg.edit_text(
+            "❌ Error: Could not send audio to processing queue."
+        )
 
 
 @router.message(F.text == "📝 Flush & Process")
@@ -82,7 +88,7 @@ async def manual_flush(message: Message) -> None:
         if not success:
             await status_msg.edit_text("❌ Buffer is empty.")
 
-    except Exception as e:
-        logger.error(f"[flush] Fatal error: {e}")
+    except Exception:
+        logger.exception("[flush] Fatal error during manual flush")
         await status_msg.delete()
-        await message.answer(f"❌ Error during processing: {e}")
+        await message.answer("❌ An internal error occurred during processing.")
