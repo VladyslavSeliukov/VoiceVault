@@ -27,9 +27,6 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         message (Message): The incoming Telegram message containing the voice object.
         bot (Bot): The aiogram Bot instance used to download the file.
         voice (Voice): The Voice object extracted by MagicFilter containing the file ID.
-
-    Returns:
-        None
     """
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")
@@ -68,13 +65,6 @@ async def manual_flush(message: Message) -> None:
 
     Args:
         message (Message): The incoming Telegram message containing the flush command.
-
-    Returns:
-        None
-
-    Raises:
-        Exception: Caught and logged if an error occurs during pipeline execution,
-            notifying the user with an error message.
     """
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")

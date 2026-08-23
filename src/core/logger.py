@@ -15,7 +15,14 @@ class JsonFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format the log record as a JSON string."""
+        """Format the log record as a JSON string.
+
+        Args:
+            record (logging.LogRecord): The log record to be formatted.
+
+        Returns:
+            str: A JSON-formatted string representing the log entry.
+        """
         log_entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
@@ -57,7 +64,14 @@ class ConsoleFormatter(logging.Formatter):
     }
 
     def format(self, record: logging.LogRecord) -> str:
-        """Format the log record with ANSI color codes."""
+        """Format the log record with ANSI color codes.
+
+        Args:
+            record (logging.LogRecord): The log record to be formatted.
+
+        Returns:
+            str: A string formatted with ANSI color codes.
+        """
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt)
 

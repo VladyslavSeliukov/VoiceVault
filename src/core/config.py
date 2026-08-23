@@ -58,7 +58,7 @@ class Settings(BaseSettings):
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
         RABBITMQ_URL: Dynamically constructs the AMQP connection string for RabbitMQ.
         POSTGRES_URL: Dynamically constructs the async connection string for PostgreSQL
-        via psycopg3.
+            via psycopg3.
     """
 
     ENVIRONMENT: str

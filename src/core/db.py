@@ -32,6 +32,9 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
     Yields a new session per execution context. Automatically rolls back
     transactions if an unhandled exception occurs, and ensures the session
     is always closed afterward.
+
+    Yields:
+        AsyncSession: An active SQLAlchemy asynchronous session object.
     """
     async with AsyncSessionLocal() as session:
         try:

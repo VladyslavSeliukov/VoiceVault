@@ -7,7 +7,14 @@ from models.tag import Tag
 
 
 def _normalize_tag(name: str) -> str:
-    """Normalizes a tag name according to domain business rules."""
+    """Normalizes a tag name according to domain business rules.
+
+    Args:
+        name (str): The raw tag name to be normalized.
+
+    Returns:
+        str: The normalized tag name (lowercased and stripped of whitespace).
+    """
     return name.strip().lower()
 
 

@@ -22,6 +22,9 @@ async def startup(state: TaskiqState) -> None:
     This event handler is triggered automatically when the Taskiq worker
     process launches. It ensures that the RabbitMQ connection pool
     is established and the worker is fully ready to consume tasks from the queue.
+
+    Args:
+        state (TaskiqState): The internal state object of the Taskiq worker.
     """
     logger.info("[broker] Connected to RabbitMQ. Taskiq worker is ready to consume.")
 
@@ -33,5 +36,8 @@ async def shutdown(state: TaskiqState) -> None:
     This event handler is triggered when the Taskiq worker receives a
     termination signal (e.g., SIGTERM or SIGINT). It ensures that active
     connections to RabbitMQ are safely closed and resources are released.
+
+    Args:
+        state (TaskiqState): The internal state object of the Taskiq worker.
     """
     logger.info("[broker] Shutting down Taskiq worker...")

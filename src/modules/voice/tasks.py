@@ -36,14 +36,6 @@ async def process_voice_task(
         user_id (int): The Telegram user ID for buffer scoping and UI updates.
         status_message_id (int): The Telegram message ID of the UI placeholder
             to dynamically update.
-
-    Returns:
-        None
-
-    Raises:
-        Exception: If the STT processing fails, the exception is logged, the user
-            is notified of the failure via Telegram, and the exception is re-raised
-            for Taskiq to handle retries.
     """
     logger.info(f"[worker] Starting STT task for file_id={file_id[:8]}...")
 
@@ -164,14 +156,6 @@ async def process_llm_note_task(
         status_message_id (int | None): The Telegram message ID of the UI placeholder
             to dynamically update, or None if the flush was triggered automatically
             by the background scheduler.
-
-    Returns:
-        None
-
-    Raises:
-        Exception: If the LLM analysis or file system operations fail, the exception
-            is logged, the user is notified via Telegram (if it was a manual trigger),
-            and the exception is re-raised for Taskiq to handle retries.
     """
     transcript_hash = hashlib.md5(combined_transcript.encode("utf-8")).hexdigest()
     is_new = await check_and_set_idempotency(f"llm:{transcript_hash}")

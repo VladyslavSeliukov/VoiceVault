@@ -29,9 +29,6 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
         message (Message): The Telegram message object triggering the command.
         command (CommandObject): The parsed command arguments containing the user's
             actual query string.
-
-    Returns:
-        None.
     """
     if not command.args:
         await message.answer("Please provide a question. Usage: /rag <your question>")

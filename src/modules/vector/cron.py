@@ -28,14 +28,6 @@ async def sync_vault_to_qdrant_task() -> None:
     Individual file processing errors (e.g., read errors or embedding generation
     failures) are caught and logged, allowing the rest of the batch to complete
     without interruption.
-
-    Raises:
-        Exception: Infrastructure-level errors (e.g., database connection loss
-            or Qdrant initialization failures) that occur outside the individual
-            file processing loop will propagate to the Taskiq worker.
-
-    Returns:
-        None.
     """
     logger.info("[vector] Starting scheduled Obsidian vault synchronization...")
     await init_qdrant()

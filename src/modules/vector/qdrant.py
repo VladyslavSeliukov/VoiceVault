@@ -40,9 +40,6 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
     Args:
         filepath (str): The relative path to the markdown file within the vault.
         vector (list[float]): The generated numerical embedding array.
-
-    Returns:
-        None.
     """
     point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, filepath))
 

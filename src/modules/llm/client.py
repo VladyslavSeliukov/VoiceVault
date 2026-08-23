@@ -185,10 +185,6 @@ async def generate_rag_response(query: str, context: str) -> str:
     Returns:
         str: The final generated response from the LLM, or an error message string
             if both the content and reasoning blocks are empty.
-
-    Raises:
-        httpx.HTTPError: If the network request to the local Ollama server fails.
-        KeyError: If the API response structure is malformed or unexpected.
     """
     system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
 
