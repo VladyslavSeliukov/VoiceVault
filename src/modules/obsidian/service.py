@@ -122,6 +122,8 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> str:
     async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
         await f.write(note_content)
 
+    logger.info(f"[obsidian] Processed note saved successfully: {file_path.name}")
+
     return file_path.name
 
 
@@ -148,6 +150,6 @@ async def read_note_content(filepath: str) -> str | None:
     try:
         async with aiofiles.open(full_path, encoding="utf-8") as file:
             return await file.read()
-    except Exception as e:
-        logger.error(f"[obsidian] Error reading file {full_path}: {e}")
+    except Exception:
+        logger.exception(f"[obsidian] Error reading file {full_path}")
         return None

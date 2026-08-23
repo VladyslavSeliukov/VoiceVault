@@ -26,14 +26,20 @@ async def check_buffers() -> None:
         async for key in redis_client.scan_iter(
             match="voicevault:activity:user:*", count=100
         ):
-            last_activity = await redis_client.get(key)
-            if not last_activity:
-                continue
-            if time.time() - int(last_activity) > timeout_seconds:
-                user_id = int(key.split(":")[-1])
-                logger.info(f"[worker] Timeout reached for user {user_id}, flushing...")
+            try:
+                last_activity = await redis_client.get(key)
+                if not last_activity:
+                    continue
 
-                await flush_pipeline(user_id)
+                if time.time() - int(last_activity) > timeout_seconds:
+                    user_id = int(key.split(":")[-1])
+                    logger.info(
+                        f"[worker] Timeout reached for user {user_id}, triggering flush"
+                    )
+                    await flush_pipeline(user_id)
 
-    except Exception as e:
-        logger.error(f"[worker] Error in debounce cron: {e}")
+            except Exception:
+                logger.exception(f"[worker] Failed to process flush for key '{key}'")
+
+    except Exception:
+        logger.exception("[worker] Fatal error during Redis scan in check_buffers cron")

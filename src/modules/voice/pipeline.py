@@ -27,29 +27,31 @@ async def flush_pipeline(user_id: int, status_message_id: int | None = None) -> 
         return False
 
     combined_transcript = "\n\n".join(item["transcript"] for item in items)
+    file_suffix = "single" if len(items) == 1 else f"batch_of_{len(items)}"
 
-    if len(items) == 1:
-        file_suffix = "single"
-    else:
-        file_suffix = f"batch_of_{len(items)}"
+    try:
+        raw_filename = await save_raw_transcript(
+            transcript=combined_transcript, file_id=file_suffix
+        )
 
-    raw_filename = await save_raw_transcript(
-        transcript=combined_transcript, file_id=file_suffix
-    )
+        logger.info(
+            f"[pipeline] "
+            f"Sending batched transcript to RabbitMQ LLM queue (items: {len(items)})..."
+        )
 
-    logger.info(
-        f"[pipeline] "
-        f"Sending batched transcript to RabbitMQ LLM queue (items: {len(items)})..."
-    )
+        await process_llm_note_task.kiq(
+            combined_transcript=combined_transcript,
+            raw_filename=raw_filename,
+            user_id=user_id,
+            status_message_id=status_message_id,
+        )
 
-    await process_llm_note_task.kiq(
-        combined_transcript=combined_transcript,
-        raw_filename=raw_filename,
-        user_id=user_id,
-        status_message_id=status_message_id,
-    )
-    logger.info(
-        f"[pipeline] Successfully processed and linked note for user {user_id}."
-    )
+        logger.info(
+            f"[pipeline] Successfully pushed batch to LLM queue for user {user_id}."
+        )
 
-    return True
+        return True
+
+    except Exception:
+        logger.exception(f"[pipeline] Fatal error during flush for user {user_id}")
+        raise

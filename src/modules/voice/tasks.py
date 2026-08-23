@@ -1,6 +1,5 @@
 import base64
 import hashlib
-import traceback
 
 from aiogram import Bot
 from aiogram.types import ReplyKeyboardRemove
@@ -50,16 +49,18 @@ async def process_voice_task(
         async with Bot(token=settings.BOT_TOKEN) as bot:
             try:
                 await bot.delete_message(chat_id=user_id, message_id=status_message_id)
-            except Exception as e:
-                logger.warning(f"[worker] Couldn't delete status message: {e}")
+            except Exception:
+                logger.exception(
+                    "[worker] Couldn't delete status message for duplicate task"
+                )
 
             try:
                 await bot.send_message(
                     chat_id=user_id,
                     text="⚠️ Duplicate audio detected. Skipped.",
                 )
-            except Exception as e:
-                logger.error(f"[worker] Failed to send duplicate warning: {e}")
+            except Exception:
+                logger.exception("[worker] Failed to send duplicate warning")
         return
 
     try:
@@ -77,16 +78,18 @@ async def process_voice_task(
                     await bot.delete_message(
                         chat_id=user_id, message_id=status_message_id
                     )
-                except Exception as e:
-                    logger.warning(f"[worker] Couldn't delete status message: {e}")
+                except Exception:
+                    logger.exception(
+                        "[worker] Couldn't delete status message for empty audio"
+                    )
 
                 try:
                     await bot.send_message(
                         chat_id=user_id,
                         text="⚠️ Audio is empty or contains no speech.",
                     )
-                except Exception as e:
-                    logger.error(f"[worker] Failed to send empty warning: {e}")
+                except Exception:
+                    logger.exception("[worker] Failed to send empty audio warning")
             return
 
         queue_length = await add_to_buffer(user_id=user_id, transcript=clean_text)
@@ -99,15 +102,17 @@ async def process_voice_task(
                     text=f"✅ Transcribed and buffered. In queue: {queue_length} "
                     f"message(s).",
                 )
-            except Exception as e:
-                logger.warning(f"[worker] Failed to edit status message: {e}")
+            except Exception:
+                logger.exception(
+                    "[worker] Failed to edit status message, attempting fallback"
+                )
                 try:
                     await bot.delete_message(
                         chat_id=user_id, message_id=status_message_id
                     )
-                except Exception as delete_err:
-                    logger.error(
-                        f"[worker] Failed to delete status message: {delete_err}"
+                except Exception:
+                    logger.exception(
+                        "[worker] Failed to delete status message in fallback"
                     )
 
                 await bot.send_message(
@@ -121,15 +126,18 @@ async def process_voice_task(
             f"[worker] STT task completed. Transcript buffered for {file_id[:8]}."
         )
 
-    except Exception as e:
-        logger.error(f"[worker] Fatal error in STT task: {e}\n{traceback.format_exc()}")
+    except Exception:
+        logger.exception("[worker] Fatal error in STT task")
         async with Bot(token=settings.BOT_TOKEN) as bot:
-            await bot.edit_message_text(
-                chat_id=user_id,
-                message_id=status_message_id,
-                text="❌ STT processing failed.",
-            )
-        raise e
+            try:
+                await bot.edit_message_text(
+                    chat_id=user_id,
+                    message_id=status_message_id,
+                    text="❌ STT processing failed.",
+                )
+            except Exception:
+                pass
+        raise
 
 
 @broker.task(task_name="llm_pipeline", max_retries=3)
@@ -185,8 +193,8 @@ async def process_llm_note_task(
             if saved_filename:
                 logger.info("[worker] Triggering real-time RAG indexing...")
                 await sync_vault_to_qdrant_task.kiq()
-        except Exception as e:
-            logger.error(f"[worker] Failed to trigger vector sync: {e}")
+        except Exception:
+            logger.exception("[worker] Failed to trigger vector sync")
 
         async with Bot(token=settings.BOT_TOKEN) as bot:
             if status_message_id is not None:
@@ -207,8 +215,8 @@ async def process_llm_note_task(
             f"[worker] Successfully processed and saved note for user {user_id}."
         )
 
-    except Exception as e:
-        logger.error(f"[worker] Fatal error in LLM task: {e}\n{traceback.format_exc()}")
+    except Exception:
+        logger.exception("[worker] Fatal error in LLM task")
 
         async with Bot(token=settings.BOT_TOKEN) as bot:
             if status_message_id is not None:
@@ -222,8 +230,9 @@ async def process_llm_note_task(
             try:
                 await bot.send_message(
                     chat_id=user_id,
-                    text="❌ LLM processing failed. Check logs.",
+                    text="❌ LLM processing failed. We will try again automatically.",
                 )
+            except Exception:
+                logger.exception("[worker] Failed to send error msg to Telegram")
 
-            except Exception as send_err:
-                logger.error(f"[worker] Failed to send error msg: {send_err}")
+        raise

@@ -30,13 +30,15 @@ async def add_tag(session: AsyncSession, name: str) -> bool:
 
     try:
         await session.commit()
+        logger.info(f"[tags_service] New tag successfully created: '{clean_name}'")
+
         return True
     except IntegrityError:
         await session.rollback()
         return False
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error(f"[tags_service] Error adding tag '{clean_name}': {e}")
+        logger.exception(f"[tags_service] Error adding tag '{clean_name}'")
         raise
 
 
@@ -62,4 +64,8 @@ async def delete_tag(session: AsyncSession, name: str) -> bool:
     result = await session.execute(stmt)
     await session.commit()
 
-    return bool(getattr(result, "rowcount", 0) > 0)
+    deleted = bool(getattr(result, "rowcount", 0) > 0)
+    if deleted:
+        logger.info(f"[tags_service] Tag successfully deleted: '{clean_name}'")
+
+    return deleted

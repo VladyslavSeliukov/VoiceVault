@@ -30,44 +30,52 @@ async def sync_vault_to_qdrant_task() -> None:
     without interruption.
     """
     logger.info("[vector] Starting scheduled Obsidian vault synchronization...")
-    await init_qdrant()
 
-    vault_path = Path(settings.OBSIDIAN_DIR) / "Processed"
+    try:
+        await init_qdrant()
 
-    async with AsyncSessionLocal() as session:
-        for file_path in vault_path.rglob("*.md"):
-            rel_path = str(file_path.relative_to(vault_path))
+        vault_path = Path(settings.OBSIDIAN_DIR) / "Processed"
 
-            mtime_ts = file_path.stat().st_mtime
-            curr_mtime = datetime.fromtimestamp(mtime_ts, tz=UTC)
+        async with AsyncSessionLocal() as session:
+            for file_path in vault_path.rglob("*.md"):
+                rel_path = str(file_path.relative_to(vault_path))
 
-            stmt = select(NoteIndex).where(NoteIndex.filepath == rel_path)
-            result = await session.execute(stmt)
-            record = result.scalar_one_or_none()
+                mtime_ts = file_path.stat().st_mtime
+                curr_mtime = datetime.fromtimestamp(mtime_ts, tz=UTC)
 
-            if record and record.last_modified >= curr_mtime:
-                continue
+                stmt = select(NoteIndex).where(NoteIndex.filepath == rel_path)
+                result = await session.execute(stmt)
+                record = result.scalar_one_or_none()
 
-            logger.info(f"[vector] Indexing changed/new file: {rel_path}")
-
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                if not content.strip():
+                if record and record.last_modified >= curr_mtime:
                     continue
 
-                vector = await generate_embedding(content)
+                logger.info(f"[vector] Indexing changed/new file: {rel_path}")
 
-                await upsert_note_vector(filepath=rel_path, vector=vector)
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                    if not content.strip():
+                        continue
 
-                if record:
-                    record.last_modified = curr_mtime
-                else:
-                    new_record = NoteIndex(filepath=rel_path, last_modified=curr_mtime)
-                    session.add(new_record)
+                    vector = await generate_embedding(content)
 
-            except Exception as e:
-                logger.error(f"[vector] Failed to process {rel_path}: {e}")
+                    await upsert_note_vector(filepath=rel_path, vector=vector)
 
-        await session.commit()
+                    if record:
+                        record.last_modified = curr_mtime
+                    else:
+                        new_record = NoteIndex(
+                            filepath=rel_path, last_modified=curr_mtime
+                        )
+                        session.add(new_record)
 
-    logger.info("[vector] Vault synchronization complete.")
+                except Exception:
+                    logger.exception(f"[vector] Failed to process {rel_path}")
+
+            await session.commit()
+
+        logger.info("[vector] Vault synchronization complete.")
+
+    except Exception:
+        logger.exception("[vector] Fatal error during vault synchronization")
+        raise
