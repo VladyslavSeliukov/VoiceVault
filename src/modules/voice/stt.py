@@ -15,7 +15,7 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
     """
     filename = f"{file_id}.ogg"
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=settings.WHISPER_TIMEOUT) as client:
         response = await client.post(
             f"{settings.WHISPER_URL}/inference",
             files={"file": (filename, audio_bytes, "audio/ogg")},

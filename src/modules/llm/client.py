@@ -57,7 +57,7 @@ async def _call_llm(
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_LLM) as client:
         try:
             response = await client.post(
                 f"{settings.OLLAMA_API_BASE}/chat",

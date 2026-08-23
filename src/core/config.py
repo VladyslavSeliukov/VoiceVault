@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str
     OLLAMA_KEEP_ALIVE: str = "5m"
 
+    WHISPER_TIMEOUT: float = 120.0
+    OLLAMA_TIMEOUT_EMBEDDING: float = 30.0
+    OLLAMA_TIMEOUT_LLM: float = 120.0
+
     REDIS_URL: str = "redis://localhost:6379/0"
     FLUSH_TIMEOUT_MINUTES: int = 60
     IDEMPOTENCY_TTL_SECONDS: int = 86400

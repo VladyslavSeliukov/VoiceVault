@@ -24,7 +24,9 @@ async def generate_embedding(text: str) -> list[float]:
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
     }
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.OLLAMA_TIMEOUT_EMBEDDING
+        ) as client:
             response = await client.post(
                 f"{settings.OLLAMA_API_BASE}/embeddings",
                 json=payload,
