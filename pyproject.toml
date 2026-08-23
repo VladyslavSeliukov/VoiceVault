@@ -45,6 +45,7 @@ asyncio_mode = "auto"
 [tool.ruff]
 line-length = 88
 target-version = "py312"
+preview = true
 extend-exclude = [
     "migrations",
 ]
@@ -57,7 +58,8 @@ select = [
     "I",
     "B",
     "UP",
-    "D"
+    "D",
+    "DOC"
 ]
 ignore = [
     "B008",
