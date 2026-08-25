@@ -1,5 +1,7 @@
 from collections.abc import AsyncGenerator
+from sqlite3 import DatabaseError
 
+from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -35,13 +37,21 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
     Yields:
         AsyncSession: An active SQLAlchemy asynchronous session object.
+
+    Raises:
+        DatabaseError: If a database transaction fails due to an internal SQLAlchemy
+        error.
     """
     async with AsyncSessionLocal() as session:
         try:
             yield session
+        except exc.SQLAlchemyError as e:
+            await session.rollback()
+            logger.exception("[db] Database transaction failed")
+            raise DatabaseError("A database operation failed") from e
         except Exception:
             await session.rollback()
-            logger.exception("[db] Session rollback due to unhandled error")
+            logger.exception("[db] Session rollback due to business logic error")
             raise
         finally:
             await session.close()

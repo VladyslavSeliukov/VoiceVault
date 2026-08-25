@@ -3,6 +3,7 @@ import time
 import httpx
 
 from core.config import settings
+from core.exceptions import STTProcessingError
 from core.logger import logger
 
 
@@ -17,8 +18,8 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
         str: The transcribed text.
 
     Raises:
-        httpx.HTTPStatusError: If the Whisper server returns a 4xx or 5xx error.
-        httpx.RequestError: If a network issue or timeout occurs.
+        STTProcessingError: If the Whisper server returns an error status code, a
+        network issue occurs, or an unexpected error happens during transcription.
     """
     filename = f"{file_id}.ogg"
 
@@ -45,12 +46,14 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
         )
         return text
 
-    except httpx.HTTPStatusError:
+    except httpx.HTTPStatusError as e:
         logger.exception("[stt] Whisper server returned an error status code.")
-        raise
-    except httpx.RequestError:
+        raise STTProcessingError("Whisper server returned an error status code.") from e
+    except httpx.RequestError as e:
         logger.exception("[stt] Failed to connect to Whisper or request timed out.")
-        raise
-    except Exception:
+        raise STTProcessingError(
+            "Network issue communicating with Whisper server."
+        ) from e
+    except Exception as e:
         logger.exception("[stt] Unexpected error during audio transcription.")
-        raise
+        raise STTProcessingError("Unexpected error during audio transcription.") from e

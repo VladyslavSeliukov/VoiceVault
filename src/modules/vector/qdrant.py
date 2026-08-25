@@ -3,6 +3,7 @@ import uuid
 from qdrant_client import AsyncQdrantClient, models
 
 from core.config import settings
+from core.exceptions import VectorStorageError
 from core.logger import logger
 
 qdrant_client = AsyncQdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
@@ -14,6 +15,9 @@ async def init_qdrant() -> None:
     Checks if the target collection exists on the Qdrant server. If not,
     creates a new collection using the vector dimensions and distance metric
     (Cosine) defined in the application environment settings.
+
+    Raises:
+        VectorStorageError: If checking for or creating the Qdrant collection fails.
     """
     try:
         exists = await qdrant_client.collection_exists(settings.QDRANT_COLLECTION_NAME)
@@ -29,9 +33,9 @@ async def init_qdrant() -> None:
             logger.info(
                 f"[qdrant] Created collection '{settings.QDRANT_COLLECTION_NAME}'"
             )
-    except Exception:
+    except Exception as e:
         logger.exception("[qdrant] Failed to initialize Qdrant collection.")
-        raise
+        raise VectorStorageError("Failed to initialize Qdrant collection.") from e
 
 
 async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
@@ -46,6 +50,10 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
     Args:
         filepath (str): The relative path to the markdown file within the vault.
         vector (list[float]): The generated numerical embedding array.
+
+    Raises:
+        VectorStorageError: If the operation to insert or update the vector in the
+        Qdrant database fails.
     """
     point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, filepath))
 
@@ -58,9 +66,9 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
                 )
             ],
         )
-    except Exception:
+    except Exception as e:
         logger.exception(f"[qdrant] Failed to upsert vector for '{filepath}'.")
-        raise
+        raise VectorStorageError(f"Failed to upsert vector for '{filepath}'.") from e
 
 
 async def search_vectors(
@@ -88,6 +96,10 @@ async def search_vectors(
     Returns:
         list[str]: A list of relative file paths corresponding to the notes
             that semantically match the query.
+
+    Raises:
+        VectorStorageError: If the semantic vector search fails due to a database or
+        network error.
     """
     actual_limit = limit if limit is not None else settings.QDRANT_SEARCH_LIMIT
     actual_threshold = (
@@ -111,6 +123,6 @@ async def search_vectors(
                 filepaths.append(str(point.payload["filepath"]))
 
         return filepaths
-    except Exception:
+    except Exception as e:
         logger.exception("[qdrant] Failed to execute vector search.")
-        raise
+        raise VectorStorageError("Failed to execute vector search.") from e

@@ -4,6 +4,7 @@ from typing import cast
 import httpx
 
 from core.config import settings
+from core.exceptions import VectorStorageError
 from core.logger import logger
 
 
@@ -17,8 +18,9 @@ async def generate_embedding(text: str) -> list[float]:
         list[float]: A list of floats representing the embedding vector.
 
     Raises:
-        httpx.HTTPStatusError: If the Ollama server returns a 4xx or 5xx error.
-        httpx.RequestError: If a network issue or timeout occurs.
+        VectorStorageError: If the Ollama server returns an error status code, a network
+         issue occurs, or an unexpected error happens during embedding generation.
+
     """
     payload = {
         "model": settings.EMBEDDING_MODEL,
@@ -42,14 +44,18 @@ async def generate_embedding(text: str) -> list[float]:
 
         return cast(list[float], response.json()["embedding"])
 
-    except httpx.HTTPStatusError:
+    except httpx.HTTPStatusError as e:
         logger.exception("[ollama] Server returned an error status code for embedding.")
-        raise
-    except httpx.RequestError:
+        raise VectorStorageError(
+            "Ollama API returned an error status code for embedding."
+        ) from e
+    except httpx.RequestError as e:
         logger.exception(
             "[ollama] Failed to connect or request timed out for embedding."
         )
-        raise
-    except Exception:
+        raise VectorStorageError(
+            "Network issue communicating with Ollama for embedding."
+        ) from e
+    except Exception as e:
         logger.exception("[ollama] Unexpected error during embedding generation.")
-        raise
+        raise VectorStorageError("Unexpected error during embedding generation.") from e

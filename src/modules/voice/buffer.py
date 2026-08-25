@@ -3,6 +3,7 @@ import time
 from typing import Any
 
 from core.config import settings
+from core.exceptions import BufferStateError
 from core.logger import logger
 from core.redis import RedisKeys, redis_client
 
@@ -18,6 +19,10 @@ async def check_and_set_idempotency(key_suffix: str) -> bool:
 
     Returns:
         bool: True if it's a new operation (lock acquired), False if duplicate.
+
+    Raises:
+        BufferStateError: If the Redis operation to check or set the idempotency lock
+        fails.
     """
     key = RedisKeys.idempotency(key_suffix)
     try:
@@ -25,11 +30,11 @@ async def check_and_set_idempotency(key_suffix: str) -> bool:
             key, "1", ex=settings.IDEMPOTENCY_TTL_SECONDS, nx=True
         )
         return bool(is_new)
-    except Exception:
+    except Exception as e:
         logger.exception(
             f"[buffer] Failed to check idempotency for key: '{key_suffix}'"
         )
-        raise
+        raise BufferStateError(f"Idempotency check failed for '{key_suffix}'") from e
 
 
 async def add_to_buffer(user_id: int, transcript: str) -> int:
@@ -45,6 +50,9 @@ async def add_to_buffer(user_id: int, transcript: str) -> int:
 
     Returns:
         int: The current number of items in the user's buffer.
+
+    Raises:
+        BufferStateError: If adding the transcript to the Redis buffer fails.
     """
     payload = json.dumps(
         {"transcript": transcript},
@@ -66,11 +74,13 @@ async def add_to_buffer(user_id: int, transcript: str) -> int:
             f"[buffer] Added transcript for user {user_id}. Buffer size: {buffer_len}"
         )
         return buffer_len
-    except Exception:
+    except Exception as e:
         logger.exception(
             f"[buffer] Failed to add transcript to buffer for user {user_id}"
         )
-        raise
+        raise BufferStateError(
+            f"Failed to add transcript to buffer for user {user_id}"
+        ) from e
 
 
 async def get_and_clear_buffer(user_id: int) -> list[dict[str, Any]]:
@@ -82,6 +92,10 @@ async def get_and_clear_buffer(user_id: int) -> list[dict[str, Any]]:
     Returns:
         list[dict[str, Any]]: A list of dictionaries containing 'transcript'
             and 'raw_filename' keys. Returns an empty list if buffer is empty.
+
+    Raises:
+        BufferStateError: If retrieving or clearing the buffer from Redis fails, or if
+        an error occurs during JSON deserialization.
     """
     buffer_key = RedisKeys.voice_buffer(user_id)
     activity_key = RedisKeys.last_activity(user_id)
@@ -99,6 +113,8 @@ async def get_and_clear_buffer(user_id: int) -> list[dict[str, Any]]:
             return []
 
         return [json.loads(item) for item in raw_items]
-    except Exception:
+    except Exception as e:
         logger.exception(f"[buffer] Failed to get and clear buffer for user {user_id}")
-        raise
+        raise BufferStateError(
+            f"Failed to get and clear buffer for user {user_id}"
+        ) from e

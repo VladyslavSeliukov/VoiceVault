@@ -2,10 +2,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from core.broker import broker
 from core.config import settings
 from core.db import AsyncSessionLocal
+from core.exceptions import DatabaseError, VoiceVaultError
 from core.logger import logger
 from models.note_index import NoteIndex
 from modules.vector.embeddings import generate_embedding
@@ -28,6 +30,11 @@ async def sync_vault_to_qdrant_task() -> None:
     Individual file processing errors (e.g., read errors or embedding generation
     failures) are caught and logged, allowing the rest of the batch to complete
     without interruption.
+
+    Raises:
+        DatabaseError: If a PostgreSQL database transaction fails during synchronization
+        VoiceVaultError: If a domain-specific error occurs during vault synchronization
+        (e.g., during Qdrant initialization).
     """
     logger.info("[vector] Starting scheduled Obsidian vault synchronization...")
 
@@ -69,13 +76,25 @@ async def sync_vault_to_qdrant_task() -> None:
                         )
                         session.add(new_record)
 
+                except OSError:
+                    logger.exception(f"[vector] Failed to read file {rel_path}")
+                except VoiceVaultError:
+                    logger.exception(f"[vector] Domain error processing {rel_path}")
                 except Exception:
-                    logger.exception(f"[vector] Failed to process {rel_path}")
+                    logger.exception(f"[vector] Unexpected error processing {rel_path}")
 
             await session.commit()
 
         logger.info("[vector] Vault synchronization complete.")
 
+    except SQLAlchemyError as e:
+        logger.exception("[vector] Database error during vault synchronization")
+        raise DatabaseError(
+            "Failed to synchronize vault to Qdrant due to DB error"
+        ) from e
+    except VoiceVaultError:
+        logger.exception("[vector] Domain error during vault synchronization")
+        raise
     except Exception:
-        logger.exception("[vector] Fatal error during vault synchronization")
+        logger.exception("[vector] Fatal unexpected error during vault synchronization")
         raise

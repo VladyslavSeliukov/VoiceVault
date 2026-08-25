@@ -6,6 +6,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from core.config import settings
+from core.exceptions import LLMProcessingError
 from core.logger import logger
 from modules.llm.prompts import EXTRACT_JSON_SYSTEM_PROMPT, RAG_SYSTEM_PROMPT
 from modules.llm.schemas import NoteAnalysis
@@ -39,9 +40,8 @@ async def _call_llm(
                 from the API.
 
     Raises:
-        httpx.HTTPStatusError: If the API returns a 4xx or 5xx error status code.
-        httpx.RequestError: If a network issue or timeout occurs during the request.
-        KeyError: If the API response structure is malformed or unexpected.
+        LLMProcessingError: If the API returns an error status code, a network issue
+            occurs, or the response structure is malformed.
     """
     payload: dict[str, Any] = {
         "model": settings.LLM_MODEL,
@@ -86,15 +86,15 @@ async def _call_llm(
                 "reasoning_content": message.get("reasoning_content") or "",
                 "raw_message": message,
             }
-        except httpx.HTTPStatusError:
+        except httpx.HTTPStatusError as e:
             logger.exception("[llm] Ollama returned an error status code.")
-            raise
-        except httpx.RequestError:
+            raise LLMProcessingError("Ollama API returned an error status code.") from e
+        except httpx.RequestError as e:
             logger.exception("[llm] Failed to connect to Ollama or request timed out.")
-            raise
-        except KeyError:
+            raise LLMProcessingError("Network issue communicating with Ollama.") from e
+        except KeyError as e:
             logger.exception("[llm] Unexpected API response structure from Ollama.")
-            raise
+            raise LLMProcessingError("Malformed API response structure.") from e
 
 
 async def extract_structured_data[T: BaseModel](
@@ -121,8 +121,8 @@ async def extract_structured_data[T: BaseModel](
         T: An instantiated and validated Pydantic object.
 
     Raises:
-        ValueError: If the LLM returns an absolutely empty response.
-        ValidationError: If output does not match the Pydantic schema.
+        LLMProcessingError: If the LLM returns an absolutely empty response or if the
+        output fails Pydantic validation.
     """
     schema_json: str = json.dumps(response_model.model_json_schema(), indent=2)
     tags_str = (
@@ -145,7 +145,7 @@ async def extract_structured_data[T: BaseModel](
             content = reasoning
         else:
             logger.error("[llm] Both content and reasoning are empty!")
-            raise ValueError("LLM returned absolutely empty response.")
+            raise LLMProcessingError("LLM returned absolutely empty response.")
 
     clean_content: str = (
         content.strip().removeprefix("```json").removesuffix("```").strip()
@@ -153,12 +153,14 @@ async def extract_structured_data[T: BaseModel](
 
     try:
         return response_model.model_validate_json(clean_content)
-    except ValidationError:
+    except ValidationError as e:
         logger.exception(
             f"[llm] Pydantic validation failed for {response_model.__name__}."
         )
         logger.warning(f"[llm] Raw invalid JSON from LLM: \n{clean_content}")
-        raise
+        raise LLMProcessingError(
+            f"Failed to validate structured data for {response_model.__name__}."
+        ) from e
 
 
 async def analyze_transcript(transcript: str, allowed_tags: list[str]) -> NoteAnalysis:
