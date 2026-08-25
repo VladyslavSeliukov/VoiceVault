@@ -1,3 +1,4 @@
+from core.exceptions import PipelineError, VoiceVaultError
 from core.logger import logger
 from modules.obsidian.service import save_raw_transcript
 from modules.voice.buffer import get_and_clear_buffer
@@ -21,6 +22,12 @@ async def flush_pipeline(user_id: int, status_message_id: int | None = None) -> 
     Returns:
         bool: True if items were successfully processed and saved,
               False if the user's buffer was empty.
+
+    Raises:
+        VoiceVaultError: If a known domain error occurs during the pipeline execution
+        (e.g., file saving or buffer retrieval).
+        PipelineError: If an unexpected critical error occurs during pipeline
+        orchestration or message broker communication.
     """
     items = await get_and_clear_buffer(user_id)
     if not items:
@@ -52,6 +59,11 @@ async def flush_pipeline(user_id: int, status_message_id: int | None = None) -> 
 
         return True
 
-    except Exception:
-        logger.exception(f"[pipeline] Fatal error during flush for user {user_id}")
+    except VoiceVaultError:
+        logger.exception(f"[pipeline] Domain error during flush for user {user_id}")
         raise
+    except Exception as e:
+        logger.exception(
+            f"[pipeline] Fatal unexpected error during flush for user {user_id}"
+        )
+        raise PipelineError(f"Pipeline orchestration failed for user {user_id}") from e

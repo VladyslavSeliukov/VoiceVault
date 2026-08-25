@@ -2,6 +2,7 @@ import time
 
 from core.broker import broker
 from core.config import settings
+from core.exceptions import BufferStateError, VoiceVaultError
 from core.logger import logger
 from core.redis import redis_client
 from modules.voice.pipeline import flush_pipeline
@@ -19,6 +20,10 @@ async def check_buffers() -> None:
 
     Broad exceptions are caught and logged to prevent a single corrupted
     key or network hiccup from crashing the entire background scheduler loop.
+
+    Raises:
+        BufferStateError: If scanning the Redis store for buffer timeouts fails due to
+        a critical error.
     """
     timeout_seconds = settings.FLUSH_TIMEOUT_MINUTES * 60
 
@@ -38,8 +43,17 @@ async def check_buffers() -> None:
                     )
                     await flush_pipeline(user_id)
 
-            except Exception:
-                logger.exception(f"[worker] Failed to process flush for key '{key}'")
+            except VoiceVaultError:
+                logger.exception(
+                    f"[worker] Domain error processing flush for key '{key}'"
+                )
 
-    except Exception:
+            except Exception:
+                logger.exception(
+                    f"[worker] Unexpected error processing flush for key '{key}'"
+                )
+
+    except Exception as e:
         logger.exception("[worker] Fatal error during Redis scan in check_buffers cron")
+
+        raise BufferStateError("Failed to scan Redis for buffer timeouts") from e

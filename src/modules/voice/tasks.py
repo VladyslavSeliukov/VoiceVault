@@ -7,6 +7,7 @@ from aiogram.types import ReplyKeyboardRemove
 from core.broker import broker
 from core.config import settings
 from core.db import AsyncSessionLocal
+from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
@@ -126,14 +127,27 @@ async def process_voice_task(
             f"[worker] STT task completed. Transcript buffered for {file_id[:8]}."
         )
 
-    except Exception:
-        logger.exception("[worker] Fatal error in STT task")
+    except VoiceVaultError:
+        logger.exception("[worker] Domain error in STT task")
         async with Bot(token=settings.BOT_TOKEN) as bot:
             try:
                 await bot.edit_message_text(
                     chat_id=user_id,
                     message_id=status_message_id,
-                    text="❌ STT processing failed.",
+                    text="❌ STT processing failed due to an internal system error.",
+                )
+            except Exception:
+                pass
+        raise
+
+    except Exception:
+        logger.exception("[worker] Fatal unexpected error in STT task")
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            try:
+                await bot.edit_message_text(
+                    chat_id=user_id,
+                    message_id=status_message_id,
+                    text="❌ STT processing failed due to a critical error.",
                 )
             except Exception:
                 pass
@@ -215,9 +229,8 @@ async def process_llm_note_task(
             f"[worker] Successfully processed and saved note for user {user_id}."
         )
 
-    except Exception:
-        logger.exception("[worker] Fatal error in LLM task")
-
+    except VoiceVaultError:
+        logger.exception("[worker] Domain error in LLM task")
         async with Bot(token=settings.BOT_TOKEN) as bot:
             if status_message_id is not None:
                 try:
@@ -226,13 +239,31 @@ async def process_llm_note_task(
                     )
                 except Exception:
                     pass
-
             try:
                 await bot.send_message(
                     chat_id=user_id,
-                    text="❌ LLM processing failed. We will try again automatically.",
+                    text="❌ Processing failed due to an internal system error. We will"
+                    " try again automatically.",
                 )
             except Exception:
                 logger.exception("[worker] Failed to send error msg to Telegram")
-
+        raise
+    except Exception:
+        logger.exception("[worker] Fatal unexpected error in LLM task")
+        async with Bot(token=settings.BOT_TOKEN) as bot:
+            if status_message_id is not None:
+                try:
+                    await bot.delete_message(
+                        chat_id=user_id, message_id=status_message_id
+                    )
+                except Exception:
+                    pass
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text="❌ Processing failed due to a critical error. We will try "
+                    "again automatically.",
+                )
+            except Exception:
+                logger.exception("[worker] Failed to send error msg to Telegram")
         raise
