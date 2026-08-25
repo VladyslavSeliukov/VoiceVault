@@ -2,6 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
+from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.llm.client import generate_rag_response
 from modules.obsidian.service import read_note_content
@@ -74,6 +75,14 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
 
         await status_msg.edit_text(final_text)
 
+    except VoiceVaultError:
+        logger.exception("[rag] Domain error processing RAG query")
+
+        await status_msg.edit_text(
+            "❌ Could not process the knowledge base due to an internal system error."
+        )
+
     except Exception:
-        logger.exception("[rag] Fatal error processing RAG query")
-        await status_msg.edit_text("❌ An error occurred while generating the answer.")
+        logger.exception("[rag] Fatal unexpected error processing RAG query")
+
+        await status_msg.edit_text("❌ An unexpected critical error occurred.")

@@ -7,6 +7,7 @@ from aiogram.types import (
     Voice,
 )
 
+from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.telegram.keyboards.voice import build_flush_keyboard
 from modules.voice.pipeline import flush_pipeline
@@ -88,7 +89,13 @@ async def manual_flush(message: Message) -> None:
         if not success:
             await status_msg.edit_text("❌ Buffer is empty.")
 
-    except Exception:
-        logger.exception("[flush] Fatal error during manual flush")
+    except VoiceVaultError:
+        logger.exception("[flush] Domain error during manual flush")
         await status_msg.delete()
-        await message.answer("❌ An internal error occurred during processing.")
+        await message.answer(
+            "❌ Could not process the notes due to an internal system error."
+        )
+    except Exception:
+        logger.exception("[flush] Fatal unexpected error during manual flush")
+        await status_msg.delete()
+        await message.answer("❌ An unexpected critical error occurred.")
