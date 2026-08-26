@@ -10,7 +10,7 @@ services:
       rabbitmq:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
     networks:
       - voicevault
     volumes:
@@ -61,7 +61,7 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
     networks:
       - voicevault
     restart: unless-stopped
@@ -79,7 +79,7 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
     networks:
       - voicevault
     restart: unless-stopped
@@ -106,11 +106,6 @@ services:
     restart: unless-stopped
     volumes:
       - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: [ "CMD-SHELL", "wget -qO- http://localhost:6333/readyz || exit 1" ]
-      interval: 5s
-      timeout: 5s
-      retries: 5
     networks:
       - voicevault
 

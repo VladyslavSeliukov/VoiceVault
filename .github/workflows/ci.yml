@@ -78,11 +78,6 @@ jobs:
         image: qdrant/qdrant:v1.19.0
         ports:
           - 6333:6333
-        options: >-
-          --health-cmd "wget -qO- http://localhost:6333/readyz || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     env:
       ENVIRONMENT: "test"
