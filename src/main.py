@@ -9,7 +9,7 @@ from core.broker import broker
 from core.config import settings
 from core.logger import logger
 from core.middlewares import DbSessionMiddleware
-from modules.basic.handlers import router as basic
+from modules.telegram.handlers.basic import router as basic
 from modules.telegram.handlers.rag import router as rag
 from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
