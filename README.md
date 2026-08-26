@@ -117,7 +117,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       establishes strict domain boundaries by centralizing Telegram routing and
       standardizing
       UI rendering to ensure a stable, maintainable interface.
-        - [ ] **11.2.1: UI Formatting & Template Extraction.** Configured a global HTML
+        - [x] **11.2.1: UI Formatting & Template Extraction.** Configured a global HTML
           ParseMode and implemented Markdown-to-HTML converters for LLM outputs.
           Extracted
           hardcoded UI strings into a centralized template layer to prevent raw markup
@@ -130,6 +130,8 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
     - [ ] **Phase 13: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
+        - [ ] **Phase 13.1:** Fixed task retry mechanism (implemented Taskiq
+          RetryMiddleware and fixed idempotency lock behavior).
 
 <div align="center">
 
