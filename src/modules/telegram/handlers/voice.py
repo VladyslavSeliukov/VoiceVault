@@ -7,6 +7,7 @@ from aiogram.types import (
     Voice,
 )
 
+from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.telegram.keyboards.voice import build_flush_keyboard
 from modules.voice.pipeline import flush_pipeline
@@ -27,9 +28,6 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         message (Message): The incoming Telegram message containing the voice object.
         bot (Bot): The aiogram Bot instance used to download the file.
         voice (Voice): The Voice object extracted by MagicFilter containing the file ID.
-
-    Returns:
-        None
     """
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")
@@ -50,12 +48,18 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         "⏳ Audio sent to STT queue. Waiting for Whisper...", reply_markup=markup
     )
 
-    await process_voice_task.kiq(
-        file_id=voice.file_id,
-        b64_audio=b64_audio,
-        user_id=message.from_user.id,
-        status_message_id=status_msg.message_id,
-    )
+    try:
+        await process_voice_task.kiq(
+            file_id=voice.file_id,
+            b64_audio=b64_audio,
+            user_id=message.from_user.id,
+            status_message_id=status_msg.message_id,
+        )
+    except Exception:
+        logger.exception("[voice] Failed to push audio processing task to broker")
+        await status_msg.edit_text(
+            "❌ Error: Could not send audio to processing queue."
+        )
 
 
 @router.message(F.text == "📝 Flush & Process")
@@ -68,13 +72,6 @@ async def manual_flush(message: Message) -> None:
 
     Args:
         message (Message): The incoming Telegram message containing the flush command.
-
-    Returns:
-        None
-
-    Raises:
-        Exception: Caught and logged if an error occurs during pipeline execution,
-            notifying the user with an error message.
     """
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")
@@ -92,7 +89,13 @@ async def manual_flush(message: Message) -> None:
         if not success:
             await status_msg.edit_text("❌ Buffer is empty.")
 
-    except Exception as e:
-        logger.error(f"[flush] Fatal error: {e}")
+    except VoiceVaultError:
+        logger.exception("[flush] Domain error during manual flush")
         await status_msg.delete()
-        await message.answer(f"❌ Error during processing: {e}")
+        await message.answer(
+            "❌ Could not process the notes due to an internal system error."
+        )
+    except Exception:
+        logger.exception("[flush] Fatal unexpected error during manual flush")
+        await status_msg.delete()
+        await message.answer("❌ An unexpected critical error occurred.")

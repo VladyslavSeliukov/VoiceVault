@@ -2,6 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
+from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.llm.client import generate_rag_response
 from modules.obsidian.service import read_note_content
@@ -29,15 +30,16 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
         message (Message): The Telegram message object triggering the command.
         command (CommandObject): The parsed command arguments containing the user's
             actual query string.
-
-    Returns:
-        None.
     """
     if not command.args:
         await message.answer("Please provide a question. Usage: /rag <your question>")
         return
 
     query = command.args
+
+    user_id = message.from_user.id if message.from_user else "unknown"
+    logger.info(f"[rag] Started RAG pipeline for user={user_id}")
+
     status_msg = await message.answer("🔍 Searching the knowledge base...")
 
     try:
@@ -73,6 +75,14 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
 
         await status_msg.edit_text(final_text)
 
-    except Exception as e:
-        logger.error(f"[rag] Error processing query: {e}")
-        await status_msg.edit_text("❌ An error occurred while generating the answer.")
+    except VoiceVaultError:
+        logger.exception("[rag] Domain error processing RAG query")
+
+        await status_msg.edit_text(
+            "❌ Could not process the knowledge base due to an internal system error."
+        )
+
+    except Exception:
+        logger.exception("[rag] Fatal unexpected error processing RAG query")
+
+        await status_msg.edit_text("❌ An unexpected critical error occurred.")

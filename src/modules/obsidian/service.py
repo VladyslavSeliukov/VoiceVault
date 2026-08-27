@@ -5,6 +5,7 @@ from typing import Any
 import aiofiles
 
 from core.config import settings
+from core.exceptions import VaultIOError
 from core.logger import logger
 from modules.llm.schemas import NoteAnalysis
 
@@ -26,6 +27,10 @@ async def _write_obsidian_note(
 
     Returns:
         Path: The absolute path to the created markdown file.
+
+    Raises:
+        VaultIOError: If an OS-level error occurs while writing the file to the Obsidian
+         vault.
     """
     target_dir: Path = Path(settings.OBSIDIAN_DIR) / subfolder
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -45,8 +50,12 @@ async def _write_obsidian_note(
 
     content += body
 
-    async with aiofiles.open(filepath, mode="w", encoding="utf-8") as f:
-        await f.write(content)
+    try:
+        async with aiofiles.open(filepath, mode="w", encoding="utf-8") as f:
+            await f.write(content)
+    except OSError as e:
+        logger.exception(f"[obsidian] Failed to write raw note to {filepath}")
+        raise VaultIOError(f"Failed to write note: {e}") from e
 
     logger.info(f"[obsidian] Note saved to {subfolder}: {filepath.name}")
     return filepath
@@ -91,6 +100,10 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> str:
 
     Returns:
         str: The filename of the saved processed note.
+
+    Raises:
+        VaultIOError: If an OS-level error occurs while writing the processed note to
+        the Obsidian vault.
     """
     body: str = f"## Summary\n{analysis.summary}\n\n"
 
@@ -119,8 +132,14 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> str:
         file_path = base_path / f"{safe_title}_{counter}.md"
         counter += 1
 
-    async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
-        await f.write(note_content)
+    try:
+        async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
+            await f.write(note_content)
+    except OSError as e:
+        logger.exception(f"[obsidian] Failed to save processed note to {file_path}")
+        raise VaultIOError(f"Failed to save processed note: {e}") from e
+
+    logger.info(f"[obsidian] Processed note saved successfully: {file_path.name}")
 
     return file_path.name
 
@@ -148,6 +167,6 @@ async def read_note_content(filepath: str) -> str | None:
     try:
         async with aiofiles.open(full_path, encoding="utf-8") as file:
             return await file.read()
-    except Exception as e:
-        logger.error(f"[obsidian] Error reading file {full_path}: {e}")
+    except OSError:
+        logger.exception(f"[obsidian] Error reading file {full_path}")
         return None

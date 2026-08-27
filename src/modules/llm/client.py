@@ -1,10 +1,12 @@
 import json
+import time
 from typing import Any, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
 
 from core.config import settings
+from core.exceptions import LLMProcessingError
 from core.logger import logger
 from modules.llm.prompts import EXTRACT_JSON_SYSTEM_PROMPT, RAG_SYSTEM_PROMPT
 from modules.llm.schemas import NoteAnalysis
@@ -38,10 +40,8 @@ async def _call_llm(
                 from the API.
 
     Raises:
-        httpx.HTTPError: If the network request fails or returns an
-            error status code.
-        KeyError: If the API response structure is malformed or
-            unexpected.
+        LLMProcessingError: If the API returns an error status code, a network issue
+            occurs, or the response structure is malformed.
     """
     payload: dict[str, Any] = {
         "model": settings.LLM_MODEL,
@@ -57,8 +57,13 @@ async def _call_llm(
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=300.0) as client:
+    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT_LLM) as client:
         try:
+            logger.info(
+                f"[llm] Sending request to Ollama (model: {settings.LLM_MODEL})..."
+            )
+            start_time = time.perf_counter()
+
             response = await client.post(
                 f"{settings.OLLAMA_API_BASE}/chat",
                 json=payload,
@@ -66,21 +71,30 @@ async def _call_llm(
             )
             response.raise_for_status()
 
+            elapsed_time = time.perf_counter() - start_time
+
             response_data = response.json()
             message: dict[str, Any] = response_data.get("message", {})
+
+            logger.info(
+                f"[llm] Successfully received response from Ollama in "
+                f"{elapsed_time:.2f}s."
+            )
 
             return {
                 "content": message.get("content") or "",
                 "reasoning_content": message.get("reasoning_content") or "",
                 "raw_message": message,
             }
-
-        except httpx.HTTPError as e:
-            logger.error(f"[llm] HTTP request failed: {e}")
-            raise
+        except httpx.HTTPStatusError as e:
+            logger.exception("[llm] Ollama returned an error status code.")
+            raise LLMProcessingError("Ollama API returned an error status code.") from e
+        except httpx.RequestError as e:
+            logger.exception("[llm] Failed to connect to Ollama or request timed out.")
+            raise LLMProcessingError("Network issue communicating with Ollama.") from e
         except KeyError as e:
-            logger.error(f"[llm] Unexpected API response structure: {e}")
-            raise
+            logger.exception("[llm] Unexpected API response structure from Ollama.")
+            raise LLMProcessingError("Malformed API response structure.") from e
 
 
 async def extract_structured_data[T: BaseModel](
@@ -107,8 +121,8 @@ async def extract_structured_data[T: BaseModel](
         T: An instantiated and validated Pydantic object.
 
     Raises:
-        ValueError: If the LLM returns an absolutely empty response.
-        ValidationError: If output does not match the Pydantic schema.
+        LLMProcessingError: If the LLM returns an absolutely empty response or if the
+        output fails Pydantic validation.
     """
     schema_json: str = json.dumps(response_model.model_json_schema(), indent=2)
     tags_str = (
@@ -131,7 +145,7 @@ async def extract_structured_data[T: BaseModel](
             content = reasoning
         else:
             logger.error("[llm] Both content and reasoning are empty!")
-            raise ValueError("LLM returned absolutely empty response.")
+            raise LLMProcessingError("LLM returned absolutely empty response.")
 
     clean_content: str = (
         content.strip().removeprefix("```json").removesuffix("```").strip()
@@ -140,12 +154,13 @@ async def extract_structured_data[T: BaseModel](
     try:
         return response_model.model_validate_json(clean_content)
     except ValidationError as e:
-        logger.error(
-            f"[llm] Pydantic validation failed for {response_model.__name__}: "
-            f"{e.errors()}"
+        logger.exception(
+            f"[llm] Pydantic validation failed for {response_model.__name__}."
         )
-        logger.debug(f"[llm] Raw LLM output: {content}")
-        raise
+        logger.warning(f"[llm] Raw invalid JSON from LLM: \n{clean_content}")
+        raise LLMProcessingError(
+            f"Failed to validate structured data for {response_model.__name__}."
+        ) from e
 
 
 async def analyze_transcript(transcript: str, allowed_tags: list[str]) -> NoteAnalysis:
@@ -185,10 +200,6 @@ async def generate_rag_response(query: str, context: str) -> str:
     Returns:
         str: The final generated response from the LLM, or an error message string
             if both the content and reasoning blocks are empty.
-
-    Raises:
-        httpx.HTTPError: If the network request to the local Ollama server fails.
-        KeyError: If the API response structure is malformed or unexpected.
     """
     system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
 
@@ -206,6 +217,9 @@ async def generate_rag_response(query: str, context: str) -> str:
             )
             content = reasoning
         else:
+            logger.error(
+                "[llm] RAG generation failed: both content and reasoning are empty."
+            )
             return "❌ LLM failed to generate a response."
 
     return content.strip()

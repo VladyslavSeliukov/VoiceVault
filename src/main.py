@@ -45,7 +45,14 @@ async def main() -> None:
     dp.include_router(tags)
     dp.include_router(rag)
 
-    await dp.start_polling(bot)
+    logger.info("[bot] Configuration loaded. Starting polling...")
+    try:
+        await dp.start_polling(bot)
+    except Exception:
+        logger.exception("[bot] Fatal error occurred during bot polling.")
+        raise
+    finally:
+        logger.info("[bot] Application stopped.")
 
 
 if __name__ == "__main__":

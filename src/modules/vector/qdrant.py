@@ -3,6 +3,7 @@ import uuid
 from qdrant_client import AsyncQdrantClient, models
 
 from core.config import settings
+from core.exceptions import VectorStorageError
 from core.logger import logger
 
 qdrant_client = AsyncQdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
@@ -14,18 +15,27 @@ async def init_qdrant() -> None:
     Checks if the target collection exists on the Qdrant server. If not,
     creates a new collection using the vector dimensions and distance metric
     (Cosine) defined in the application environment settings.
-    """
-    exists = await qdrant_client.collection_exists(settings.QDRANT_COLLECTION_NAME)
 
-    if not exists:
-        await qdrant_client.create_collection(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            vectors_config=models.VectorParams(
-                size=settings.QDRANT_VECTOR_SIZE,
-                distance=models.Distance.COSINE,
-            ),
-        )
-        logger.info(f"[qdrant] Created collection '{settings.QDRANT_COLLECTION_NAME}'")
+    Raises:
+        VectorStorageError: If checking for or creating the Qdrant collection fails.
+    """
+    try:
+        exists = await qdrant_client.collection_exists(settings.QDRANT_COLLECTION_NAME)
+
+        if not exists:
+            await qdrant_client.create_collection(
+                collection_name=settings.QDRANT_COLLECTION_NAME,
+                vectors_config=models.VectorParams(
+                    size=settings.QDRANT_VECTOR_SIZE,
+                    distance=models.Distance.COSINE,
+                ),
+            )
+            logger.info(
+                f"[qdrant] Created collection '{settings.QDRANT_COLLECTION_NAME}'"
+            )
+    except Exception as e:
+        logger.exception("[qdrant] Failed to initialize Qdrant collection.")
+        raise VectorStorageError("Failed to initialize Qdrant collection.") from e
 
 
 async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
@@ -41,19 +51,24 @@ async def upsert_note_vector(filepath: str, vector: list[float]) -> None:
         filepath (str): The relative path to the markdown file within the vault.
         vector (list[float]): The generated numerical embedding array.
 
-    Returns:
-        None.
+    Raises:
+        VectorStorageError: If the operation to insert or update the vector in the
+        Qdrant database fails.
     """
     point_id = str(uuid.uuid5(uuid.NAMESPACE_URL, filepath))
 
-    await qdrant_client.upsert(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
-        points=[
-            models.PointStruct(
-                id=point_id, vector=vector, payload={"filepath": filepath}
-            )
-        ],
-    )
+    try:
+        await qdrant_client.upsert(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            points=[
+                models.PointStruct(
+                    id=point_id, vector=vector, payload={"filepath": filepath}
+                )
+            ],
+        )
+    except Exception as e:
+        logger.exception(f"[qdrant] Failed to upsert vector for '{filepath}'.")
+        raise VectorStorageError(f"Failed to upsert vector for '{filepath}'.") from e
 
 
 async def search_vectors(
@@ -81,6 +96,10 @@ async def search_vectors(
     Returns:
         list[str]: A list of relative file paths corresponding to the notes
             that semantically match the query.
+
+    Raises:
+        VectorStorageError: If the semantic vector search fails due to a database or
+        network error.
     """
     actual_limit = limit if limit is not None else settings.QDRANT_SEARCH_LIMIT
     actual_threshold = (
@@ -89,17 +108,21 @@ async def search_vectors(
         else settings.QDRANT_SCORE_THRESHOLD
     )
 
-    response = await qdrant_client.query_points(
-        collection_name=settings.QDRANT_COLLECTION_NAME,
-        query=query_vector,
-        limit=actual_limit,
-        score_threshold=actual_threshold,
-        with_payload=True,
-    )
+    try:
+        response = await qdrant_client.query_points(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            query=query_vector,
+            limit=actual_limit,
+            score_threshold=actual_threshold,
+            with_payload=True,
+        )
 
-    filepaths: list[str] = []
-    for point in response.points:
-        if point.payload and "filepath" in point.payload:
-            filepaths.append(str(point.payload["filepath"]))
+        filepaths: list[str] = []
+        for point in response.points:
+            if point.payload and "filepath" in point.payload:
+                filepaths.append(str(point.payload["filepath"]))
 
-    return filepaths
+        return filepaths
+    except Exception as e:
+        logger.exception("[qdrant] Failed to execute vector search.")
+        raise VectorStorageError("Failed to execute vector search.") from e

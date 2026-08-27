@@ -2,10 +2,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from core.broker import broker
 from core.config import settings
 from core.db import AsyncSessionLocal
+from core.exceptions import DatabaseError, VoiceVaultError
 from core.logger import logger
 from models.note_index import NoteIndex
 from modules.vector.embeddings import generate_embedding
@@ -30,52 +32,69 @@ async def sync_vault_to_qdrant_task() -> None:
     without interruption.
 
     Raises:
-        Exception: Infrastructure-level errors (e.g., database connection loss
-            or Qdrant initialization failures) that occur outside the individual
-            file processing loop will propagate to the Taskiq worker.
-
-    Returns:
-        None.
+        DatabaseError: If a PostgreSQL database transaction fails during synchronization
+        VoiceVaultError: If a domain-specific error occurs during vault synchronization
+        (e.g., during Qdrant initialization).
     """
     logger.info("[vector] Starting scheduled Obsidian vault synchronization...")
-    await init_qdrant()
 
-    vault_path = Path(settings.OBSIDIAN_DIR) / "Processed"
+    try:
+        await init_qdrant()
 
-    async with AsyncSessionLocal() as session:
-        for file_path in vault_path.rglob("*.md"):
-            rel_path = str(file_path.relative_to(vault_path))
+        vault_path = Path(settings.OBSIDIAN_DIR) / "Processed"
 
-            mtime_ts = file_path.stat().st_mtime
-            curr_mtime = datetime.fromtimestamp(mtime_ts, tz=UTC)
+        async with AsyncSessionLocal() as session:
+            for file_path in vault_path.rglob("*.md"):
+                rel_path = str(file_path.relative_to(vault_path))
 
-            stmt = select(NoteIndex).where(NoteIndex.filepath == rel_path)
-            result = await session.execute(stmt)
-            record = result.scalar_one_or_none()
+                mtime_ts = file_path.stat().st_mtime
+                curr_mtime = datetime.fromtimestamp(mtime_ts, tz=UTC)
 
-            if record and record.last_modified >= curr_mtime:
-                continue
+                stmt = select(NoteIndex).where(NoteIndex.filepath == rel_path)
+                result = await session.execute(stmt)
+                record = result.scalar_one_or_none()
 
-            logger.info(f"[vector] Indexing changed/new file: {rel_path}")
-
-            try:
-                content = file_path.read_text(encoding="utf-8")
-                if not content.strip():
+                if record and record.last_modified >= curr_mtime:
                     continue
 
-                vector = await generate_embedding(content)
+                logger.info(f"[vector] Indexing changed/new file: {rel_path}")
 
-                await upsert_note_vector(filepath=rel_path, vector=vector)
+                try:
+                    content = file_path.read_text(encoding="utf-8")
+                    if not content.strip():
+                        continue
 
-                if record:
-                    record.last_modified = curr_mtime
-                else:
-                    new_record = NoteIndex(filepath=rel_path, last_modified=curr_mtime)
-                    session.add(new_record)
+                    vector = await generate_embedding(content)
 
-            except Exception as e:
-                logger.error(f"[vector] Failed to process {rel_path}: {e}")
+                    await upsert_note_vector(filepath=rel_path, vector=vector)
 
-        await session.commit()
+                    if record:
+                        record.last_modified = curr_mtime
+                    else:
+                        new_record = NoteIndex(
+                            filepath=rel_path, last_modified=curr_mtime
+                        )
+                        session.add(new_record)
 
-    logger.info("[vector] Vault synchronization complete.")
+                except OSError:
+                    logger.exception(f"[vector] Failed to read file {rel_path}")
+                except VoiceVaultError:
+                    logger.exception(f"[vector] Domain error processing {rel_path}")
+                except Exception:
+                    logger.exception(f"[vector] Unexpected error processing {rel_path}")
+
+            await session.commit()
+
+        logger.info("[vector] Vault synchronization complete.")
+
+    except SQLAlchemyError as e:
+        logger.exception("[vector] Database error during vault synchronization")
+        raise DatabaseError(
+            "Failed to synchronize vault to Qdrant due to DB error"
+        ) from e
+    except VoiceVaultError:
+        logger.exception("[vector] Domain error during vault synchronization")
+        raise
+    except Exception:
+        logger.exception("[vector] Fatal unexpected error during vault synchronization")
+        raise

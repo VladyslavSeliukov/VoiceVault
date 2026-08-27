@@ -58,7 +58,7 @@ class Settings(BaseSettings):
         WHISPER_URL: Dynamically constructs the full HTTP URL for the whisper server.
         RABBITMQ_URL: Dynamically constructs the AMQP connection string for RabbitMQ.
         POSTGRES_URL: Dynamically constructs the async connection string for PostgreSQL
-        via psycopg3.
+            via psycopg3.
     """
 
     ENVIRONMENT: str
@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     LLM_NUM_CTX: int = 8192
     EMBEDDING_MODEL: str
     OLLAMA_KEEP_ALIVE: str = "5m"
+
+    WHISPER_TIMEOUT: float = 120.0
+    OLLAMA_TIMEOUT_EMBEDDING: float = 30.0
+    OLLAMA_TIMEOUT_LLM: float = 120.0
 
     REDIS_URL: str = "redis://localhost:6379/0"
     FLUSH_TIMEOUT_MINUTES: int = 60
