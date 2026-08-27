@@ -1,20 +1,22 @@
 import base64
 import hashlib
 
-from aiogram import Bot
-from aiogram.types import ReplyKeyboardRemove
-
 from core.broker import broker
-from core.config import settings
 from core.db import AsyncSessionLocal
 from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
 from modules.tags.service import get_all_tags
-from modules.telegram.keyboards.voice import build_flush_keyboard
 from modules.vector.cron import sync_vault_to_qdrant_task
 from modules.voice.buffer import add_to_buffer, check_and_set_idempotency
+from modules.voice.publisher import publish_ui_event
+from modules.voice.schema import (
+    LLMCompletedEvent,
+    LLMErrorEvent,
+    STTCompletedEvent,
+    STTErrorEvent,
+)
 from modules.voice.stt import transcribe
 
 
@@ -36,121 +38,76 @@ async def process_voice_task(
         user_id (int): The Telegram user ID for buffer scoping and UI updates.
         status_message_id (int): The Telegram message ID of the UI placeholder
             to dynamically update.
+
+    Raises:
+        VoiceVaultError: If a known domain error occurs during transcription.
     """
     logger.info(f"[worker] Starting STT task for file_id={file_id[:8]}...")
 
     is_new = await check_and_set_idempotency(f"stt:{file_id}")
-
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
         logger.warning(
-            f"[worker] Duplicate STT task detected for file_id={file_id[:8]}. Skipping."
+            f"[worker] Duplicate STT task detected for {file_id[:8]}. Skipping."
         )
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            try:
-                await bot.delete_message(chat_id=user_id, message_id=status_message_id)
-            except Exception:
-                logger.exception(
-                    "[worker] Couldn't delete status message for duplicate task"
-                )
-
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text="⚠️ Duplicate audio detected. Skipped.",
-                )
-            except Exception:
-                logger.exception("[worker] Failed to send duplicate warning")
+        await publish_ui_event(
+            STTErrorEvent(
+                user_id=user_id,
+                status_message_id=status_message_id,
+                error_type="duplicate",
+            )
+        )
         return
 
     try:
         audio_bytes = base64.b64decode(b64_audio)
         transcript: str = await transcribe(file_id, audio_bytes)
-
         clean_text: str = (
             transcript.replace("[BLANK_AUDIO]", "").replace("[Silence]", "").strip()
         )
 
         if not clean_text:
             logger.warning(f"[worker] Empty transcript for {file_id[:8]}. Aborting.")
-            async with Bot(token=settings.BOT_TOKEN) as bot:
-                try:
-                    await bot.delete_message(
-                        chat_id=user_id, message_id=status_message_id
-                    )
-                except Exception:
-                    logger.exception(
-                        "[worker] Couldn't delete status message for empty audio"
-                    )
-
-                try:
-                    await bot.send_message(
-                        chat_id=user_id,
-                        text="⚠️ Audio is empty or contains no speech.",
-                    )
-                except Exception:
-                    logger.exception("[worker] Failed to send empty audio warning")
+            await publish_ui_event(
+                STTErrorEvent(
+                    user_id=user_id,
+                    status_message_id=status_message_id,
+                    error_type="empty",
+                )
+            )
             return
 
         queue_length = await add_to_buffer(user_id=user_id, transcript=clean_text)
-
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            try:
-                await bot.edit_message_text(
-                    chat_id=user_id,
-                    message_id=status_message_id,
-                    text=f"✅ Transcribed and buffered. In queue: {queue_length} "
-                    f"message(s).",
-                )
-            except Exception:
-                logger.exception(
-                    "[worker] Failed to edit status message, attempting fallback"
-                )
-                try:
-                    await bot.delete_message(
-                        chat_id=user_id, message_id=status_message_id
-                    )
-                except Exception:
-                    logger.exception(
-                        "[worker] Failed to delete status message in fallback"
-                    )
-
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=f"✅ Transcribed and buffered. In queue: {queue_length} "
-                    f"message(s).",
-                    reply_markup=build_flush_keyboard(),
-                )
-
+        await publish_ui_event(
+            STTCompletedEvent(
+                user_id=user_id,
+                status_message_id=status_message_id,
+                queue_length=queue_length,
+            )
+        )
         logger.info(
             f"[worker] STT task completed. Transcript buffered for {file_id[:8]}."
         )
-
     except VoiceVaultError:
         logger.exception("[worker] Domain error in STT task")
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            try:
-                await bot.edit_message_text(
-                    chat_id=user_id,
-                    message_id=status_message_id,
-                    text="❌ STT processing failed due to an internal system error.",
-                )
-            except Exception:
-                pass
+        await publish_ui_event(
+            STTErrorEvent(
+                user_id=user_id,
+                status_message_id=status_message_id,
+                error_type="internal",
+            )
+        )
         raise
-
     except Exception:
         logger.exception("[worker] Fatal unexpected error in STT task")
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            try:
-                await bot.edit_message_text(
-                    chat_id=user_id,
-                    message_id=status_message_id,
-                    text="❌ STT processing failed due to a critical error.",
-                )
-            except Exception:
-                pass
+        await publish_ui_event(
+            STTErrorEvent(
+                user_id=user_id,
+                status_message_id=status_message_id,
+                error_type="critical",
+            )
+        )
         raise
 
 
@@ -178,10 +135,12 @@ async def process_llm_note_task(
         status_message_id (int | None): The Telegram message ID of the UI placeholder
             to dynamically update, or None if the flush was triggered automatically
             by the background scheduler.
+
+    Raises:
+        VoiceVaultError: If a known domain error occurs during LLM analysis.
     """
     transcript_hash = hashlib.md5(combined_transcript.encode("utf-8")).hexdigest()
     is_new = await check_and_set_idempotency(f"llm:{transcript_hash}")
-
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
@@ -210,60 +169,22 @@ async def process_llm_note_task(
         except Exception:
             logger.exception("[worker] Failed to trigger vector sync")
 
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            if status_message_id is not None:
-                try:
-                    await bot.delete_message(
-                        chat_id=user_id, message_id=status_message_id
-                    )
-                except Exception:
-                    pass
-
-            await bot.send_message(
-                chat_id=user_id,
-                text="✅ Note processed and successfully saved to Obsidian!",
-                reply_markup=ReplyKeyboardRemove(),
-            )
-
+        await publish_ui_event(
+            LLMCompletedEvent(user_id=user_id, status_message_id=status_message_id)
+        )
         logger.info(
             f"[worker] Successfully processed and saved note for user {user_id}."
         )
 
     except VoiceVaultError:
         logger.exception("[worker] Domain error in LLM task")
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            if status_message_id is not None:
-                try:
-                    await bot.delete_message(
-                        chat_id=user_id, message_id=status_message_id
-                    )
-                except Exception:
-                    pass
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text="❌ Processing failed due to an internal system error. We will"
-                    " try again automatically.",
-                )
-            except Exception:
-                logger.exception("[worker] Failed to send error msg to Telegram")
+        await publish_ui_event(
+            LLMErrorEvent(user_id=user_id, status_message_id=status_message_id)
+        )
         raise
     except Exception:
         logger.exception("[worker] Fatal unexpected error in LLM task")
-        async with Bot(token=settings.BOT_TOKEN) as bot:
-            if status_message_id is not None:
-                try:
-                    await bot.delete_message(
-                        chat_id=user_id, message_id=status_message_id
-                    )
-                except Exception:
-                    pass
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text="❌ Processing failed due to a critical error. We will try "
-                    "again automatically.",
-                )
-            except Exception:
-                logger.exception("[worker] Failed to send error msg to Telegram")
+        await publish_ui_event(
+            LLMErrorEvent(user_id=user_id, status_message_id=status_message_id)
+        )
         raise

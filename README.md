@@ -99,27 +99,39 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 - [x] **Phase 10: RAG Mode.** Implement `/rag` command handling: embed the user's
   question, execute vector search in Qdrant, retrieve full text from Postgres, and
   generate context-aware answers via Qwen.
-- [ ] **Phase 11: Technical Debt Resolution.** Fast-paced development naturally leaves
+- [x] **Phase 11: Technical Debt Resolution.** Fast-paced development naturally leaves
   behind technical debt. This phase is dedicated to stabilizing the core architecture
   and preparing the system for production.
-    - [ ] **Phase 11.1: Comprehensive Review & Refactoring.** Conduct a full project
+    - [x] **Phase 11.1: Comprehensive Review & Refactoring.** Conduct a full project
       audit. Eliminate dead code, unify code conventions, optimize imports, and ensure
       strict type hinting and modular isolation across all services.
-        - [x] **11.1.1: Docstring Standardization.** 1- [x] **11.1.2: AI Service Request
-          Timeouts.**
+        - [x] **11.1.1: Docstring Standardization.**
+        - [x] **11.1.2: AI Service Request Timeouts.**
         - [x] **11.1.3: Propper Logging.**
         - [x] **11.1.4: Global Error Handling.**
-        - [x] **11.1.5: Docker Configuration & Environment Separation** (Production vs.
-          Override profiles, port binding review, `depends_on` strictness).
+        - [x] **11.1.5: Docker Configuration & Environment Separation** (Production
+          vs. Override profiles, port binding review, `depends_on` strictness).
         - [x] **11.1.6: CI/CD Pipeline Enhancements.**
-        - [ ] **11.1.7: Telegram UI Formatting & Parse Mode.** Audit all bot replies to
-          ensure proper rendering of text styles (e.g., bold text(<b>), lists).
-          Configure a global ParseMode (preferably HTML) and verify that no raw markup
-          elements (like `**` or `__`) leak into the user interface.
-        - [ ] **11.1.8: Prometheus and Grafana**
-    - [ ] **Phase 11.2: End-to-End Testing.** Implement unit and integration tests on
+    - [x] Phase 11.2: Telegram UI & Architecture Refactoring. This phase focuses on
+      decoupling the presentation layer from the core business logic. It
+      establishes strict domain boundaries by centralizing Telegram routing and
+      standardizing
+      UI rendering to ensure a stable, maintainable interface.
+        - [x] **11.2.1: UI Formatting & Template Extraction.** Configured a global HTML
+          ParseMode and implemented Markdown-to-HTML converters for LLM outputs.
+          Extracted
+          hardcoded UI strings into a centralized template layer to prevent raw markup
+          leaks.
+        - [x] **11.2.2: Architectural Consolidation (Handlers).** Migrate the legacy
+          `basic/handlers.py` into the unified `telegram/handlers` directory. This
+          establishes a single source of truth for all Telegram routing and
+          interactions.
+    - [ ] **Phase 12: Prometheus and Grafana**
+    - [ ] **Phase 13: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
+        - [ ] **Phase 13.1:** Fixed task retry mechanism (implemented Taskiq
+          RetryMiddleware and fixed idempotency lock behavior).
 
 <div align="center">
 
@@ -162,9 +174,6 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
     - [ ] **Phase 12.6: Architectural Isolation: AI Module.** Extract all LLM
       generation, prompting, and vector embedding logic into a dedicated, isolated
       `ai` directory to strictly separate ML infrastructure from business logic.
-    - [ ] **Phase 12.7: Architectural Consolidation: Handlers.** Migrate the legacy
-      `basic/handlers.py` into the unified `telegram/handlers` directory. This
-      establishes a single source of truth for all Telegram routing and interactions.
     - [ ] **Phase 12.8: Scheduled Task Jitter.** Introduce randomized delay intervals
       (jitter) to cron jobs and retry mechanisms. This prevents thundering herd
       problems, smoothing out CPU spikes when multiple scheduled tasks attempt to

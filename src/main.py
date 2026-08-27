@@ -1,28 +1,39 @@
 import asyncio
+from typing import Any
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 
 from core.broker import broker
 from core.config import settings
 from core.logger import logger
 from core.middlewares import DbSessionMiddleware
-from modules.basic.handlers import router as basic
+from modules.telegram.handlers.basic import router as basic
 from modules.telegram.handlers.rag import router as rag
 from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
+from modules.telegram.listener import listen_ui_events
 from modules.telegram.ui import setup_bot_ui
 
 
-async def on_startup(bot: Bot) -> None:
+async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     """Execute tasks before the bot starts polling."""
     logger.info("[bot] Starting Telegram Bot...")
     await broker.startup()
     await setup_bot_ui(bot)
 
+    dispatcher["listener_task"] = asyncio.create_task(listen_ui_events(bot))
 
-async def on_shutdown() -> None:
+
+async def on_shutdown(dispatcher: Dispatcher) -> None:
     """Execute tasks before the bot stops."""
     logger.info("[bot] Shutting down Telegram Bot...")
+
+    listener_task: asyncio.Task[Any] | None = dispatcher.get("listener_task")
+    if listener_task:
+        listener_task.cancel()
+
     await broker.shutdown()
 
 
@@ -32,7 +43,10 @@ async def main() -> None:
     This function configures the bot instance, initializes the dispatcher,
     includes all necessary routers, and starts long-polling.
     """
-    bot = Bot(token=settings.BOT_TOKEN)
+    bot = Bot(
+        token=settings.BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher()
 
     dp.startup.register(on_startup)

@@ -10,6 +10,7 @@ from aiogram.types import (
 from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.telegram.keyboards.voice import build_flush_keyboard
+from modules.telegram.templates import UI
 from modules.voice.pipeline import flush_pipeline
 from modules.voice.tasks import process_voice_task
 
@@ -37,16 +38,14 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
 
     if not downloaded_stream:
         logger.error(f"[bot] Failed to download voice message: {voice.file_id}")
-        await message.answer("Failed to download the voice message.")
+        await message.answer(UI.VOICE_DOWNLOAD_FAILED)
         return
 
     raw_audio: bytes = downloaded_stream.read()
     b64_audio = base64.b64encode(raw_audio).decode("utf-8")
 
     markup = build_flush_keyboard()
-    status_msg = await message.answer(
-        "⏳ Audio sent to STT queue. Waiting for Whisper...", reply_markup=markup
-    )
+    status_msg = await message.answer(UI.VOICE_QUEUED, reply_markup=markup)
 
     try:
         await process_voice_task.kiq(
@@ -57,9 +56,7 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
         )
     except Exception:
         logger.exception("[voice] Failed to push audio processing task to broker")
-        await status_msg.edit_text(
-            "❌ Error: Could not send audio to processing queue."
-        )
+        await status_msg.edit_text(UI.VOICE_QUEUE_ERROR)
 
 
 @router.message(F.text == "📝 Flush & Process")
@@ -78,7 +75,7 @@ async def manual_flush(message: Message) -> None:
         return
 
     status_msg = await message.answer(
-        "Processing your notes, please wait...", reply_markup=ReplyKeyboardRemove()
+        UI.FLUSH_START, reply_markup=ReplyKeyboardRemove()
     )
 
     try:
@@ -87,15 +84,13 @@ async def manual_flush(message: Message) -> None:
         )
 
         if not success:
-            await status_msg.edit_text("❌ Buffer is empty.")
+            await status_msg.edit_text(UI.FLUSH_EMPTY)
 
     except VoiceVaultError:
         logger.exception("[flush] Domain error during manual flush")
         await status_msg.delete()
-        await message.answer(
-            "❌ Could not process the notes due to an internal system error."
-        )
+        await message.answer(UI.ERROR_INTERNAL)
     except Exception:
         logger.exception("[flush] Fatal unexpected error during manual flush")
         await status_msg.delete()
-        await message.answer("❌ An unexpected critical error occurred.")
+        await message.answer(UI.ERROR_CRITICAL)

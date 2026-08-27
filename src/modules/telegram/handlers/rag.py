@@ -6,6 +6,8 @@ from core.exceptions import VoiceVaultError
 from core.logger import logger
 from modules.llm.client import generate_rag_response
 from modules.obsidian.service import read_note_content
+from modules.telegram.templates import UI
+from modules.telegram.utils import md_to_telegram_html
 from modules.vector.embeddings import generate_embedding
 from modules.vector.qdrant import search_vectors
 
@@ -32,7 +34,7 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
             actual query string.
     """
     if not command.args:
-        await message.answer("Please provide a question. Usage: /rag <your question>")
+        await message.answer(UI.RAG_USAGE)
         return
 
     query = command.args
@@ -40,14 +42,14 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
     user_id = message.from_user.id if message.from_user else "unknown"
     logger.info(f"[rag] Started RAG pipeline for user={user_id}")
 
-    status_msg = await message.answer("🔍 Searching the knowledge base...")
+    status_msg = await message.answer(UI.RAG_SEARCHING)
 
     try:
         query_vector = await generate_embedding(query)
         filepaths = await search_vectors(query_vector)
 
         if not filepaths:
-            await status_msg.edit_text("🤷‍♂️ No relevant notes found in the database.")
+            await status_msg.edit_text(UI.RAG_NO_NOTES)
             return
 
         context_parts: list[str] = []
@@ -60,29 +62,24 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
                 valid_sources.append(filepath)
 
         if not context_parts:
-            await status_msg.edit_text(
-                "❌ Found matching vectors, but the actual files are missing."
-            )
+            await status_msg.edit_text(UI.RAG_MISSING_FILES)
             return
 
         full_context = "\n\n".join(context_parts)
 
-        await status_msg.edit_text("🧠 Analyzing context and generating answer...")
-        answer = await generate_rag_response(query=query, context=full_context)
+        await status_msg.edit_text(UI.RAG_ANALYZING)
+        raw_answer = await generate_rag_response(query=query, context=full_context)
+        safe_html_answer = md_to_telegram_html(raw_answer)
 
         sources_text = "\n".join([f"- <code>{src}</code>" for src in valid_sources])
-        final_text = f"🤖 **Answer:**\n{answer}\n\n📚 **Sources:**\n{sources_text}"
+        final_text = UI.RAG_ANSWER.format(answer=safe_html_answer, sources=sources_text)
 
         await status_msg.edit_text(final_text)
 
     except VoiceVaultError:
         logger.exception("[rag] Domain error processing RAG query")
-
-        await status_msg.edit_text(
-            "❌ Could not process the knowledge base due to an internal system error."
-        )
+        await status_msg.edit_text(UI.ERROR_INTERNAL)
 
     except Exception:
         logger.exception("[rag] Fatal unexpected error processing RAG query")
-
-        await status_msg.edit_text("❌ An unexpected critical error occurred.")
+        await status_msg.edit_text(UI.ERROR_CRITICAL)
