@@ -1,11 +1,16 @@
 services:
-
   bot:
     build: .
     env_file: .env
     depends_on:
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     networks:
       - voicevault
     volumes:
@@ -13,9 +18,7 @@ services:
       - obsidian_vault:${OBSIDIAN_DIR}
 
   redis:
-    image: redis:8
-    ports:
-      - "6379:6379"
+    image: redis:8-alpine
     volumes:
       - redis_data:/data
     healthcheck:
@@ -27,14 +30,11 @@ services:
       - voicevault
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4-management-alpine
     container_name: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -58,6 +58,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     networks:
       - voicevault
     restart: unless-stopped
@@ -72,6 +76,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
     networks:
       - voicevault
     restart: unless-stopped
@@ -82,8 +90,6 @@ services:
     command: postgres -c shared_buffers=256MB -c max_connections=200
     env_file:
       - .env
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -98,8 +104,6 @@ services:
     image: qdrant/qdrant:v1.19.0
     container_name: qdrant
     restart: unless-stopped
-    ports:
-      - "6333:6333"
     volumes:
       - qdrant_data:/qdrant/storage
     networks:

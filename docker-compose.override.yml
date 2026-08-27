@@ -14,3 +14,20 @@ services:
   scheduler:
     volumes:
       - *src-volume
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_UI_PORT:-15672}:15672"
+
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  qdrant:
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
