@@ -66,6 +66,12 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 ### 🏗 Implementation Roadmap
 
+<div align="center">
+
+`VoiceVault v1.0.0`
+
+</div>
+
 - [x] **Phase 1: Skeleton.** Receive voice messages via `aiogram` and save them locally
   to disk. No ML or message brokers involved.
 - [x] **Phase 2: STT Integration.** Forward audio to local `whisper.cpp` via HTTP and
@@ -136,14 +142,14 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 <div align="center">
 
-`VoiceVault v1.0.0`
+`VoiceVault v2.0.0`
 
 </div>
 
-- [ ] **Phase 12: Backlog & Future Enhancements.** Additional features and architectural
+- [ ] **Phase 14: Backlog & Future Enhancements.** Additional features and architectural
   improvements conceptualized during the core development phases. These were
   deliberately postponed to maintain initial delivery timelines and prevent scope creep.
-    - [ ] **Phase 12.1: Adaptive Index Synchronization (Exponential Backoff).**
+    - [ ] **Phase 14.1: Adaptive Index Synchronization (Exponential Backoff).**
       Dynamically adjust the interval for scanning and indexing the Obsidian vault based
       on user activity. Functionally, if no notes are modified, the system increases the
       delay between checks (e.g., from 15m to 30m, then 1h) to conserve resources.
@@ -151,54 +157,54 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
       and implementing stateful evaluation logic within the Taskiq worker to gracefully
       bypass the fixed cron schedule, effectively simulating dynamic jitter without
       maintaining a heavy real-time watchdog daemon.
-    - [ ] **Phase 12.2: Scale-to-Zero Local Model Management.** Implement a
+    - [ ] **Phase 14.2: Scale-to-Zero Local Model Management.** Implement a
       resource-aware middleware to manage memory-intensive local AI models (STT,
       Embeddings). The system will dynamically load models into RAM upon receiving a
       request and automatically unload them after a configured idle timeout. This
       prevents background memory monopolization on the host working machine, effectively
       mimicking the auto-unload behavior of tools like LM Studio/Ollama for isolated
       processes like Whisper.
-    - [ ] **Phase 12.3: AI Provider Routing Middleware.** Implement a routing layer to
+    - [ ] **Phase 14.3: AI Provider Routing Middleware.** Implement a routing layer to
       dynamically switch between local AI providers based on model architecture.
       Functionally, route MLX model requests to LM Studio and GGUF/Embedding requests
       to Ollama. Technically, this involves abstracting the LLM client interface and
       configuring environment-based routing rules.
-    - [ ] **Phase 12.4: Telegram UI: Strict Message Replacement.** Refactor the
+    - [ ] **Phase 14.4: Telegram UI: Strict Message Replacement.** Refactor the
       inline keyboard handling. Replace `edit_message` operations with a strict
       "delete and send new" (maybe, implement dedicated function for this) pattern
       to prevent Telegram API state mismatches and UI inconsistencies during rapid user
       interactions.
-    - [ ] **Phase 12.5: Telegram UI: Clean Queue Notifications.** Remove redundant
+    - [ ] **Phase 14.5: Telegram UI: Clean Queue Notifications.** Remove redundant
       reply keyboards from the initial "added to queue" notification messages. This
       keeps the chat history visually clean and prevents accidental duplicate task
       submissions while the user waits for processing.
-    - [ ] **Phase 12.6: Architectural Isolation: AI Module.** Extract all LLM
+    - [ ] **Phase 14.6: Architectural Isolation: AI Module.** Extract all LLM
       generation, prompting, and vector embedding logic into a dedicated, isolated
       `ai` directory to strictly separate ML infrastructure from business logic.
-    - [ ] **Phase 12.8: Scheduled Task Jitter.** Introduce randomized delay intervals
+    - [ ] **Phase 14.8: Scheduled Task Jitter.** Introduce randomized delay intervals
       (jitter) to cron jobs and retry mechanisms. This prevents thundering herd
       problems, smoothing out CPU spikes when multiple scheduled tasks attempt to
       hit the local AI services simultaneously.
-    - [ ] **Phase 12.9: Text Message Processing Pipeline.** Expand the bot's input
+    - [ ] **Phase 14.9: Text Message Processing Pipeline.** Expand the bot's input
       capabilities by adding a dedicated pipeline for standard text messages. This
       routes text directly to the AI formatting and vectorization queues, bypassing
       the Whisper STT middleware entirely.
-    - [ ] **Phase 12.10: Centralized Exception Registry.** Create a comprehensive
+    - [ ] **Phase 14.10: Centralized Exception Registry.** Create a comprehensive
       `exceptions.py` module containing custom, domain-specific exception classes.
       This enforces strict typing, robust error handling, and precise routing within
       the Taskiq workers.
-    - [ ] **Phase 12.11: Nightly Vault Analysis Mode.** Implement a scheduled batch
+    - [ ] **Phase 14.11: Nightly Vault Analysis Mode.** Implement a scheduled batch
       processing job for off-peak hours. This agentic routine will thoroughly analyze
       the Obsidian vault, map connections between notes, and generate daily insights
       without impacting active daytime hardware resources.
-    - [ ] **Phase 12.12: Small-to-Big RAG Retrieval.** Upgrade the vector search
+    - [ ] **Phase 14.12: Small-to-Big RAG Retrieval.** Upgrade the vector search
       architecture to implement the "Small-to-Big" retrieval pattern. The system will
       perform semantic searches exclusively against the highly structured, semantically
       dense `Processed` notes to maximize retrieval precision. Once the most relevant
       summaries are identified, the pipeline will dynamically resolve their `source`
       YAML frontmatter links to fetch the corresponding `RAW` transcripts, feeding the
       LLM the complete, uncompressed context for highly detailed answer generation.
-    - [ ] **Phase 12.13: Global Fallback Handler.** Implement a catch-all routing
+    - [ ] **Phase 14.13: Global Fallback Handler.** Implement a catch-all routing
       mechanism at the base of the dispatcher hierarchy (`unhandled_message_fallback`).
       Previously, the bot silently ignored unrecognized inputs — such as arbitrary text,
       typos in commands — leaving the user without clear feedback. This handler ensures
