@@ -1,6 +1,7 @@
 from collections.abc import AsyncGenerator
 from sqlite3 import DatabaseError
 
+from prometheus_client.core import REGISTRY as PROM_REGISTRY
 from sqlalchemy import exc
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -10,6 +11,7 @@ from sqlalchemy.ext.asyncio import (
 
 from core.config import settings
 from core.logger import logger
+from core.metrics.db import SQLAlchemyPoolCollector
 
 engine = create_async_engine(
     settings.POSTGRES_URL,
@@ -17,8 +19,13 @@ engine = create_async_engine(
     max_overflow=10,
     pool_timeout=10.0,
     pool_pre_ping=True,
-    echo=settings.ENVIRONMENT == "local",
+    echo=settings.ENVIRONMENT == "dev",
 )
+
+try:
+    PROM_REGISTRY.register(SQLAlchemyPoolCollector(engine))
+except ValueError:
+    pass
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
