@@ -3,6 +3,7 @@ from taskiq_aio_pika import AioPikaBroker
 
 from core.config import settings
 from core.logger import logger
+from core.middleware import MetricsMiddleware
 
 broker = AioPikaBroker(
     url=settings.RABBITMQ_URL,
@@ -12,7 +13,7 @@ broker = AioPikaBroker(
             "x-delivery-limit": 3,
         }
     },
-)
+).with_middlewares(MetricsMiddleware())
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
