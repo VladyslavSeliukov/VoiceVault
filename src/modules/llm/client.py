@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 from core.config import settings
 from core.exceptions import LLMProcessingError
 from core.logger import logger
+from core.metrics.definitions import AIMetrics
 from modules.llm.prompts import EXTRACT_JSON_SYSTEM_PROMPT, RAG_SYSTEM_PROMPT
 from modules.llm.schemas import NoteAnalysis
 
@@ -15,7 +16,10 @@ T = TypeVar("T", bound=BaseModel)
 
 
 async def _call_llm(
-    system_prompt: str, user_prompt: str, temperature: float = 0.1
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.1,
+    operation_name: str = "llm_generation",
 ) -> dict[str, Any]:
     """Asynchronously sends a request to the LLM server and retrieves the response.
 
@@ -30,6 +34,8 @@ async def _call_llm(
         user_prompt (str): The actual user input or transcript to be processed.
         temperature (float, optional): Controls the randomness of the model's output.
             Defaults to 0.1 for deterministic tasks.
+        operation_name (str, optional): Identifier for the specific LLM operation
+            used in Prometheus metrics tracking. Defaults to "llm_generation".
 
     Returns:
         dict[str, Any]: A dictionary containing:
@@ -72,6 +78,9 @@ async def _call_llm(
             response.raise_for_status()
 
             elapsed_time = time.perf_counter() - start_time
+            AIMetrics.OPERATION_DURATION.labels(
+                operation=operation_name, provider="ollama"
+            ).observe(elapsed_time)
 
             response_data = response.json()
             message: dict[str, Any] = response_data.get("message", {})
@@ -87,12 +96,21 @@ async def _call_llm(
                 "raw_message": message,
             }
         except httpx.HTTPStatusError as e:
+            AIMetrics.OPERATION_ERRORS.labels(
+                operation=operation_name, provider="ollama", error_type="http_error"
+            ).inc()
             logger.exception("[llm] Ollama returned an error status code.")
             raise LLMProcessingError("Ollama API returned an error status code.") from e
         except httpx.RequestError as e:
+            AIMetrics.OPERATION_ERRORS.labels(
+                operation=operation_name, provider="ollama", error_type="network_error"
+            ).inc()
             logger.exception("[llm] Failed to connect to Ollama or request timed out.")
             raise LLMProcessingError("Network issue communicating with Ollama.") from e
         except KeyError as e:
+            AIMetrics.OPERATION_ERRORS.labels(
+                operation=operation_name, provider="ollama", error_type="parsing_error"
+            ).inc()
             logger.exception("[llm] Unexpected API response structure from Ollama.")
             raise LLMProcessingError("Malformed API response structure.") from e
 
@@ -133,7 +151,10 @@ async def extract_structured_data[T: BaseModel](
     )
 
     llm_response: dict[str, Any] = await _call_llm(
-        system_prompt=system_prompt, user_prompt=user_text, temperature=0.1
+        system_prompt=system_prompt,
+        user_prompt=user_text,
+        temperature=0.1,
+        operation_name="formatting",
     )
 
     content: str = llm_response["content"]
@@ -204,7 +225,10 @@ async def generate_rag_response(query: str, context: str) -> str:
     system_prompt = RAG_SYSTEM_PROMPT.format(context=context)
 
     llm_response = await _call_llm(
-        system_prompt=system_prompt, user_prompt=query, temperature=0.1
+        system_prompt=system_prompt,
+        user_prompt=query,
+        temperature=0.1,
+        operation_name="rag_generation",
     )
 
     content: str = llm_response["content"]
