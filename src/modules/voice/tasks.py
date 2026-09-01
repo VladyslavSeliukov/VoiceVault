@@ -6,11 +6,16 @@ from core.db import AsyncSessionLocal
 from core.exceptions import VoiceVaultError
 from core.logger import logger
 from core.metrics.definitions import BusinessMetrics
+from core.redis import RedisKeys
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
 from modules.tags.service import get_all_tags
 from modules.vector.cron import sync_vault_to_qdrant_task
-from modules.voice.buffer import add_to_buffer, check_and_set_idempotency
+from modules.voice.buffer import (
+    add_to_buffer,
+    check_and_set_idempotency,
+    remove_idempotency_lock,
+)
 from modules.voice.publisher import publish_ui_event
 from modules.voice.schema import (
     LLMCompletedEvent,
@@ -45,7 +50,8 @@ async def process_voice_task(
     """
     logger.info(f"[worker] Starting STT task for file_id={file_id[:8]}...")
 
-    is_new = await check_and_set_idempotency(f"stt:{file_id}")
+    lock_key = RedisKeys.stt_idempotency(file_id)
+    is_new = await check_and_set_idempotency(lock_key)
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
@@ -94,6 +100,7 @@ async def process_voice_task(
         )
     except VoiceVaultError:
         logger.exception("[worker] Domain error in STT task")
+        await remove_idempotency_lock(lock_key)
         await publish_ui_event(
             STTErrorEvent(
                 user_id=user_id,
@@ -104,6 +111,7 @@ async def process_voice_task(
         raise
     except Exception:
         logger.exception("[worker] Fatal unexpected error in STT task")
+        await remove_idempotency_lock(lock_key)
         await publish_ui_event(
             STTErrorEvent(
                 user_id=user_id,
@@ -143,7 +151,9 @@ async def process_llm_note_task(
         VoiceVaultError: If a known domain error occurs during LLM analysis.
     """
     transcript_hash = hashlib.md5(combined_transcript.encode("utf-8")).hexdigest()
-    is_new = await check_and_set_idempotency(f"llm:{transcript_hash}")
+
+    lock_key = RedisKeys.llm_idempotency(transcript_hash)
+    is_new = await check_and_set_idempotency(lock_key)
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
@@ -182,12 +192,14 @@ async def process_llm_note_task(
 
     except VoiceVaultError:
         logger.exception("[worker] Domain error in LLM task")
+        await remove_idempotency_lock(lock_key)
         await publish_ui_event(
             LLMErrorEvent(user_id=user_id, status_message_id=status_message_id)
         )
         raise
     except Exception:
         logger.exception("[worker] Fatal unexpected error in LLM task")
+        await remove_idempotency_lock(lock_key)
         await publish_ui_event(
             LLMErrorEvent(user_id=user_id, status_message_id=status_message_id)
         )
