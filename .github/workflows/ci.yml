@@ -83,6 +83,12 @@ jobs:
       ENVIRONMENT: "test"
       LOG_LEVEL: "INFO"
 
+      METRICS_PORT_BOT: 9090
+      METRICS_PORT_WORKER: 9091
+
+      GRAFANA_ADMIN_USER: "admin"
+      GRAFANA_ADMIN_PASSWORD: "admin"
+
       BOT_TOKEN: "test_token_for_ci"
 
       VOICES_DIR: "storage/voices"

@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     Attributes:
         ENVIRONMENT: The execution environment (e.g., "local", "prod").
         LOG_LEVEL: The global logging level (e.g., "INFO", "DEBUG").
+        METRICS_PORT_BOT: The network port on which the Telegram bot exposes Prometheus
+            metrics.
+        METRICS_PORT_WORKER: The network port on which the background worker exposes
+            Prometheus metrics.
+
+        GRAFANA_ADMIN_USER: The initial username for logging into the Grafana dashboard.
+        GRAFANA_ADMIN_PASSWORD: The initial password for logging into the Grafana
+            dashboard.
 
         BOT_TOKEN: The Telegram Bot API token required for authentication.
         VOICES_DIR: The directory path where downloaded voice messages are stored.
@@ -63,6 +71,11 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: str
     LOG_LEVEL: str = "INFO"
+    METRICS_PORT_BOT: int = 9090
+    METRICS_PORT_WORKER: int = 9091
+
+    GRAFANA_ADMIN_USER: str = "admin"
+    GRAFANA_ADMIN_PASSWORD: str = "admin"
 
     BOT_TOKEN: str
     VOICES_DIR: str = "storage/voices"
