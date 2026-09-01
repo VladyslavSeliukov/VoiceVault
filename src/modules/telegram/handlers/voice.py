@@ -9,6 +9,7 @@ from aiogram.types import (
 
 from core.exceptions import VoiceVaultError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from modules.telegram.keyboards.voice import build_flush_keyboard
 from modules.telegram.templates import UI
 from modules.voice.pipeline import flush_pipeline
@@ -33,6 +34,8 @@ async def voice(message: Message, bot: Bot, voice: Voice) -> None:
     if not message.from_user:
         logger.warning("[telegram] Received voice message without from_user context.")
         return
+
+    BusinessMetrics.VOICE_MESSAGES_RECEIVED.inc()
 
     downloaded_stream = await bot.download(voice.file_id)
 
