@@ -130,8 +130,9 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
     - [ ] **Phase 13: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
-        - [ ] **Phase 13.1:** Fixed task retry mechanism (implemented Taskiq
+        - [x] **Phase 13.1:** Fixed task retry mechanism (implemented Taskiq
           RetryMiddleware and fixed idempotency lock behavior).
+        - [ ] **Phase 13.2:** TODO Resolution & Codebase Cleanup
 
 <div align="center">
 

@@ -118,3 +118,25 @@ async def get_and_clear_buffer(user_id: int) -> list[dict[str, Any]]:
         raise BufferStateError(
             f"Failed to get and clear buffer for user {user_id}"
         ) from e
+
+
+async def remove_idempotency_lock(lock_key: str) -> None:
+    """Removes the idempotency lock for a given operation.
+
+    Useful for allowing retries when a background task fails, ensuring
+    subsequent attempts are not falsely flagged as duplicates.
+
+    Args:
+        lock_key (str): The exact Redis key for the idempotency lock.
+
+    Raises:
+        BufferStateError: If the Redis delete operation fails.
+    """
+    try:
+        await redis_client.delete(lock_key)
+        logger.debug(f"[buffer] Removed idempotency lock: '{lock_key}'")
+    except Exception as e:
+        logger.exception(f"[buffer] Failed to remove idempotency lock: '{lock_key}'")
+        raise BufferStateError(
+            f"Idempotency lock removal failed for '{lock_key}'"
+        ) from e

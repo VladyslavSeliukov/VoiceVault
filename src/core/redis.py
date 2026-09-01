@@ -60,3 +60,27 @@ class RedisKeys:
             str: The fully qualified Redis key string.
         """
         return f"voicevault:idempotency:{key_suffix}"
+
+    @staticmethod
+    def stt_idempotency(file_id: str) -> str:
+        """Generates the Redis key for STT task idempotency lock.
+
+        Args:
+            file_id (str): The unique Telegram file ID.
+
+        Returns:
+            str: Formatted Redis key string.
+        """
+        return f"voicevault:idempotency:stt:{file_id}"
+
+    @staticmethod
+    def llm_idempotency(transcript_hash: str) -> str:
+        """Generates the Redis key for LLM task idempotency lock.
+
+        Args:
+            transcript_hash (str): MD5 hash of the combined transcript.
+
+        Returns:
+            str: Formatted Redis key string.
+        """
+        return f"voicevault:idempotency:llm:{transcript_hash}"

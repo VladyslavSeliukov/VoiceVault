@@ -1,4 +1,5 @@
 from taskiq import TaskiqEvents, TaskiqState
+from taskiq.middlewares import SimpleRetryMiddleware
 from taskiq_aio_pika import AioPikaBroker
 
 from core.config import settings
@@ -13,7 +14,12 @@ broker = AioPikaBroker(
             "x-delivery-limit": 3,
         }
     },
-).with_middlewares(MetricsMiddleware())
+).with_middlewares(
+    MetricsMiddleware(),
+    SimpleRetryMiddleware(
+        default_retry_count=3,
+    ),
+)
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
