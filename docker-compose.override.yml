@@ -31,3 +31,11 @@ services:
   qdrant:
     ports:
       - "${QDRANT_PORT:-6333}:6333"
+      -
+  prometheus:
+    ports:
+      - "9090:9090"
+
+  grafana:
+    ports:
+      - "3000:3000"
