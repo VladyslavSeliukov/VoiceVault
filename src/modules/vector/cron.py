@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from core.broker import broker
@@ -69,13 +70,15 @@ async def sync_vault_to_qdrant_task() -> None:
 
                     await upsert_note_vector(filepath=rel_path, vector=vector)
 
-                    if record:
-                        record.last_modified = curr_mtime
-                    else:
-                        new_record = NoteIndex(
-                            filepath=rel_path, last_modified=curr_mtime
+                    upsert_stmt = (
+                        insert(NoteIndex)
+                        .values(filepath=rel_path, last_modified=curr_mtime)
+                        .on_conflict_do_update(
+                            index_elements=["filepath"],
+                            set_={"last_modified": curr_mtime},
                         )
-                        session.add(new_record)
+                    )
+                    await session.execute(upsert_stmt)
 
                 except OSError:
                     BusinessMetrics.DOMAIN_ERRORS.labels(
