@@ -4,6 +4,7 @@ from aiogram.types import Message
 
 from core.exceptions import VoiceVaultError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from modules.llm.client import generate_rag_response
 from modules.obsidian.service import read_note_content
 from modules.telegram.templates import UI
@@ -37,6 +38,7 @@ async def handle_rag_command(message: Message, command: CommandObject) -> None:
         await message.answer(UI.RAG_USAGE)
         return
 
+    BusinessMetrics.RAG_QUERIES.inc()
     query = command.args
 
     user_id = message.from_user.id if message.from_user else "unknown"

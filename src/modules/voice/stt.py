@@ -5,6 +5,7 @@ import httpx
 from core.config import settings
 from core.exceptions import STTProcessingError
 from core.logger import logger
+from core.metrics.definitions import AIMetrics
 
 
 async def transcribe(file_id: str, audio_bytes: bytes) -> str:
@@ -23,6 +24,8 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
     """
     filename = f"{file_id}.ogg"
 
+    AIMetrics.AUDIO_PROCESSING_SIZE.observe(len(audio_bytes))
+
     try:
         logger.info(
             f"[stt] Sending audio ({len(audio_bytes)} bytes) to local Whisper server..."
@@ -39,6 +42,10 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
         response.raise_for_status()
         elapsed_time = time.perf_counter() - start_time
 
+        AIMetrics.OPERATION_DURATION.labels(
+            operation="stt", provider="whisper"
+        ).observe(elapsed_time)
+
         text = str(response.json()["text"])
 
         logger.info(
@@ -47,13 +54,22 @@ async def transcribe(file_id: str, audio_bytes: bytes) -> str:
         return text
 
     except httpx.HTTPStatusError as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="stt", provider="whisper", error_type="http_error"
+        ).inc()
         logger.exception("[stt] Whisper server returned an error status code.")
         raise STTProcessingError("Whisper server returned an error status code.") from e
     except httpx.RequestError as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="stt", provider="whisper", error_type="network_error"
+        ).inc()
         logger.exception("[stt] Failed to connect to Whisper or request timed out.")
         raise STTProcessingError(
             "Network issue communicating with Whisper server."
         ) from e
     except Exception as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="stt", provider="whisper", error_type="unknown"
+        ).inc()
         logger.exception("[stt] Unexpected error during audio transcription.")
         raise STTProcessingError("Unexpected error during audio transcription.") from e

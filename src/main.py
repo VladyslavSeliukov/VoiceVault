@@ -8,18 +8,22 @@ from aiogram.enums import ParseMode
 from core.broker import broker
 from core.config import settings
 from core.logger import logger
-from core.middlewares import DbSessionMiddleware
+from core.metrics.server import start_metrics_server
 from modules.telegram.handlers.basic import router as basic
 from modules.telegram.handlers.rag import router as rag
 from modules.telegram.handlers.tags import router as tags
 from modules.telegram.handlers.voice import router as voice
 from modules.telegram.listener import listen_ui_events
+from modules.telegram.middlewares import DbSessionMiddleware
 from modules.telegram.ui import setup_bot_ui
 
 
 async def on_startup(bot: Bot, dispatcher: Dispatcher) -> None:
     """Execute tasks before the bot starts polling."""
     logger.info("[bot] Starting Telegram Bot...")
+
+    start_metrics_server(settings.METRICS_PORT_BOT, "bot")
+
     await broker.startup()
     await setup_bot_ui(bot)
 

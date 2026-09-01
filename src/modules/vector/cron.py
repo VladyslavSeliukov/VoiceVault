@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
 from core.broker import broker
@@ -9,6 +10,7 @@ from core.config import settings
 from core.db import AsyncSessionLocal
 from core.exceptions import DatabaseError, VoiceVaultError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from models.note_index import NoteIndex
 from modules.vector.embeddings import generate_embedding
 from modules.vector.qdrant import init_qdrant, upsert_note_vector
@@ -68,19 +70,30 @@ async def sync_vault_to_qdrant_task() -> None:
 
                     await upsert_note_vector(filepath=rel_path, vector=vector)
 
-                    if record:
-                        record.last_modified = curr_mtime
-                    else:
-                        new_record = NoteIndex(
-                            filepath=rel_path, last_modified=curr_mtime
+                    upsert_stmt = (
+                        insert(NoteIndex)
+                        .values(filepath=rel_path, last_modified=curr_mtime)
+                        .on_conflict_do_update(
+                            index_elements=["filepath"],
+                            set_={"last_modified": curr_mtime},
                         )
-                        session.add(new_record)
+                    )
+                    await session.execute(upsert_stmt)
 
                 except OSError:
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_file_read_error"
+                    ).inc()
                     logger.exception(f"[vector] Failed to read file {rel_path}")
                 except VoiceVaultError:
                     logger.exception(f"[vector] Domain error processing {rel_path}")
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_domain_error"
+                    ).inc()
                 except Exception:
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_unexpected_error"
+                    ).inc()
                     logger.exception(f"[vector] Unexpected error processing {rel_path}")
 
             await session.commit()

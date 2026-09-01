@@ -7,6 +7,7 @@ import aiofiles
 from core.config import settings
 from core.exceptions import VaultIOError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from modules.llm.schemas import NoteAnalysis
 
 
@@ -135,6 +136,13 @@ async def save_processed_note(analysis: NoteAnalysis, raw_filename: str) -> str:
     try:
         async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
             await f.write(note_content)
+
+        BusinessMetrics.NOTES_SAVED.inc()
+
+        if analysis.tags:
+            for tag in analysis.tags:
+                BusinessMetrics.TAGS_ASSIGNED.labels(tag_name=tag).inc()
+
     except OSError as e:
         logger.exception(f"[obsidian] Failed to save processed note to {file_path}")
         raise VaultIOError(f"Failed to save processed note: {e}") from e

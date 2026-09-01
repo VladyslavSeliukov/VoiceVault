@@ -1,4 +1,5 @@
 from core.logger import logger
+from core.metrics.definitions import InfraMetrics
 from core.redis import redis_client
 from modules.voice.schema import UIEventBase
 
@@ -12,6 +13,7 @@ async def publish_ui_event(event: UIEventBase) -> None:
     channel = "telegram_ui_events"
     payload = event.model_dump_json()
 
+    InfraMetrics.REDIS_PUBSUB_EVENTS.labels(event_type=event.event_type).inc()
     try:
         await redis_client.publish(channel, payload)
         logger.debug(f"[pubsub] Published {event.event_type} for user {event.user_id}")
