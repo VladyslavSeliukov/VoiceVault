@@ -9,6 +9,7 @@ from core.config import settings
 from core.db import AsyncSessionLocal
 from core.exceptions import DatabaseError, VoiceVaultError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from models.note_index import NoteIndex
 from modules.vector.embeddings import generate_embedding
 from modules.vector.qdrant import init_qdrant, upsert_note_vector
@@ -77,10 +78,19 @@ async def sync_vault_to_qdrant_task() -> None:
                         session.add(new_record)
 
                 except OSError:
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_file_read_error"
+                    ).inc()
                     logger.exception(f"[vector] Failed to read file {rel_path}")
                 except VoiceVaultError:
                     logger.exception(f"[vector] Domain error processing {rel_path}")
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_domain_error"
+                    ).inc()
                 except Exception:
+                    BusinessMetrics.DOMAIN_ERRORS.labels(
+                        error_type="cron_unexpected_error"
+                    ).inc()
                     logger.exception(f"[vector] Unexpected error processing {rel_path}")
 
             await session.commit()

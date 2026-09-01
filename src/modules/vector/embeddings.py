@@ -6,6 +6,7 @@ import httpx
 from core.config import settings
 from core.exceptions import VectorStorageError
 from core.logger import logger
+from core.metrics.definitions import AIMetrics
 
 
 async def generate_embedding(text: str) -> list[float]:
@@ -40,16 +41,25 @@ async def generate_embedding(text: str) -> list[float]:
             response.raise_for_status()
 
         elapsed_time = time.perf_counter() - start_time
+        AIMetrics.OPERATION_DURATION.labels(
+            operation="embedding", provider="ollama"
+        ).observe(elapsed_time)
         logger.info(f"[ollama] Vector embedding generated in {elapsed_time:.2f}s.")
 
         return cast(list[float], response.json()["embedding"])
 
     except httpx.HTTPStatusError as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="embedding", provider="ollama", error_type="http_error"
+        ).inc()
         logger.exception("[ollama] Server returned an error status code for embedding.")
         raise VectorStorageError(
             "Ollama API returned an error status code for embedding."
         ) from e
     except httpx.RequestError as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="embedding", provider="ollama", error_type="network_error"
+        ).inc()
         logger.exception(
             "[ollama] Failed to connect or request timed out for embedding."
         )
@@ -57,5 +67,8 @@ async def generate_embedding(text: str) -> list[float]:
             "Network issue communicating with Ollama for embedding."
         ) from e
     except Exception as e:
+        AIMetrics.OPERATION_ERRORS.labels(
+            operation="embedding", provider="ollama", error_type="unknown"
+        ).inc()
         logger.exception("[ollama] Unexpected error during embedding generation.")
         raise VectorStorageError("Unexpected error during embedding generation.") from e
