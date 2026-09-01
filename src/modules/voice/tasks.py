@@ -5,6 +5,7 @@ from core.broker import broker
 from core.db import AsyncSessionLocal
 from core.exceptions import VoiceVaultError
 from core.logger import logger
+from core.metrics.definitions import BusinessMetrics
 from modules.llm.client import analyze_transcript
 from modules.obsidian.service import save_processed_note
 from modules.tags.service import get_all_tags
@@ -48,6 +49,7 @@ async def process_voice_task(
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
+        BusinessMetrics.DOMAIN_ERRORS.labels(error_type="duplicate_stt_task").inc()
         logger.warning(
             f"[worker] Duplicate STT task detected for {file_id[:8]}. Skipping."
         )
@@ -68,6 +70,7 @@ async def process_voice_task(
         )
 
         if not clean_text:
+            BusinessMetrics.DOMAIN_ERRORS.labels(error_type="empty_audio").inc()
             logger.warning(f"[worker] Empty transcript for {file_id[:8]}. Aborting.")
             await publish_ui_event(
                 STTErrorEvent(
@@ -144,6 +147,7 @@ async def process_llm_note_task(
     is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
+        BusinessMetrics.DOMAIN_ERRORS.labels(error_type="duplicate_llm_task").inc()
         logger.warning(
             f"[worker] Duplicate LLM task detected for user {user_id}. Skipping."
         )
