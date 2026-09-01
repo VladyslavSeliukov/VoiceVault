@@ -126,7 +126,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
           `basic/handlers.py` into the unified `telegram/handlers` directory. This
           establishes a single source of truth for all Telegram routing and
           interactions.
-    - [ ] **Phase 12: Prometheus and Grafana**
+    - [x] **Phase 12: Prometheus and Grafana**
     - [ ] **Phase 13: End-to-End Testing.** Implement unit and integration tests on
       the stabilized codebase. Validate RabbitMQ queue reliability, database
       transactions, LLM fallback mechanisms, and Telegram UI consistency under load.
