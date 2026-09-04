@@ -8,14 +8,14 @@ from core.logger import logger
 from core.redis import RedisKeys, redis_client
 
 
-async def check_and_set_idempotency(key_suffix: str) -> bool:
+async def check_and_set_idempotency(lock_key: str) -> bool:
     """Checks if an operation has already been processed using Redis SETNX.
 
     Creates an atomic lock for a given key to prevent duplicate processing
     (e.g., from network retries or message broker redeliveries).
 
     Args:
-        key_suffix (str): The unique identifier for the operation.
+        lock_key (str): The unique identifier for the operation.
 
     Returns:
         bool: True if it's a new operation (lock acquired), False if duplicate.
@@ -24,17 +24,14 @@ async def check_and_set_idempotency(key_suffix: str) -> bool:
         BufferStateError: If the Redis operation to check or set the idempotency lock
         fails.
     """
-    key = RedisKeys.idempotency(key_suffix)
     try:
         is_new = await redis_client.set(
-            key, "1", ex=settings.IDEMPOTENCY_TTL_SECONDS, nx=True
+            lock_key, "1", ex=settings.IDEMPOTENCY_TTL_SECONDS, nx=True
         )
         return bool(is_new)
     except Exception as e:
-        logger.exception(
-            f"[buffer] Failed to check idempotency for key: '{key_suffix}'"
-        )
-        raise BufferStateError(f"Idempotency check failed for '{key_suffix}'") from e
+        logger.exception(f"[buffer] Failed to check idempotency for key: '{lock_key}'")
+        raise BufferStateError(f"Idempotency check failed for '{lock_key}'") from e
 
 
 async def add_to_buffer(user_id: int, transcript: str) -> int:

@@ -148,4 +148,4 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run Pytest with Coverage
-        run: uv run pytest -v --cov=src --cov-report=term-missing
+        run: uv run pytest -v --cov=src --cov-report=term-missing --cov-fail-under=80

@@ -52,7 +52,6 @@ async def process_voice_task(
 
     lock_key = RedisKeys.stt_idempotency(file_id)
     is_new = await check_and_set_idempotency(lock_key)
-    is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
         BusinessMetrics.DOMAIN_ERRORS.labels(error_type="duplicate_stt_task").inc()
@@ -154,7 +153,6 @@ async def process_llm_note_task(
 
     lock_key = RedisKeys.llm_idempotency(transcript_hash)
     is_new = await check_and_set_idempotency(lock_key)
-    is_new = True  # TODO: remove after the app implementation
 
     if not is_new:
         BusinessMetrics.DOMAIN_ERRORS.labels(error_type="duplicate_llm_task").inc()
