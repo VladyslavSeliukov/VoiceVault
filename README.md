@@ -20,47 +20,62 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 ---
 
-## 🧠 Architecture Deep Dive
+## 🧠 Deep Dive
 
-### 1. Guaranteed Delivery & Fault Tolerance
+### 1. RabbitMQ Delivery Reliability (At-Least-Once)
 
-* **Problem**: ML model inference (Whisper/Qwen) is resource-heavy. OOM kills, LLM
-  timeouts, or API crashes cause silent message drops in background tasks.
-* **Solution**: Implemented **Dead Letter Exchanges (DLX)** in RabbitMQ and enforced *
-  *Manual Acknowledgments**. The Taskiq worker sends an ACK *only* after the Markdown
-  file is physically written to the Obsidian volume and committed to PostgreSQL. Failed
-  tasks (e.g., malformed LLM responses after retries) are automatically routed to a DLQ
-  for manual inspection or exponential backoff retries.
+* **Problem**: RabbitMQ guarantees at-least-once delivery, meaning a worker crash
+  mid-processing causes message redelivery - risking duplicate note creation on retry.
+* **Solution**: Manual ACKs sent only after the note is fully committed to disk and
+  Postgres. Combined with Redis-based idempotency keys hashed per audio batch,
+  redelivered messages are detected and skipped before reprocessing.
 
-### 2. Idempotency Layer
+### 2. Multi-Store Consistency (Postgres ↔ Qdrant)
 
-* **Problem**: Message brokers provide *at-least-once* delivery. A worker crash after a
-  successful Obsidian write but before the RabbitMQ ACK would cause the message to be
-  redelivered, triggering the entire ML pipeline again and duplicating the note.
-* **Solution**: Implemented an idempotency check using Redis. The system hashes the
-  incoming audio payload. If the hash exists (O(1) lookup), the redelivered message is
-  instantly acknowledged and dropped, completely preventing duplicate file writes.
+* **Problem**: Note metadata and its vector embedding live in two separate stores with
+  no
+  shared transaction - a crash between writes leaves a note searchable in Obsidian but
+  invisible to RAG, or vice versa.
+* **Solution**: Vectorization is a separate downstream task, only enqueued after the
+  Postgres write is confirmed committed - never speculative. A reconciliation job
+  periodically scans for metadata with no matching vector and re-enqueues it.
 
-### 3. Distributed State Reconciliation (Postgres vs. Qdrant)
+### 3. Debounce Buffering (Fragmented Thought Capture)
 
-* **Problem**: System state is split. Note metadata lives in PostgreSQL (Source of
-  Truth), while embeddings live in Qdrant. There is no shared transaction between the
-  two stores.
-* **Solution**: Vectorization is decoupled into a separate downstream task triggered
-  *only* after the Postgres commit succeeds. If Qdrant goes down, the note still safely
-  exists in Postgres and Obsidian (fail loud into DLQ, no data loss, RAG is just
-  temporarily degraded). A periodic **Reconciliation Job** scans for Postgres notes
-  without matching Qdrant vectors and re-enqueues them, healing any state drift.
+* **Problem**: Users send multiple short voice messages in quick succession; processing
+  each
+  in isolation fragments a single train of thought into disconnected notes.
+* **Solution**: Incoming voice messages are buffered in Redis under a rolling
+  silence-timer.
+  New messages within the window extend the same session; only on timeout is the full
+  batch dispatched as one unit.
 
-### 4. Smart Debouncing & LLM Output Validation
+### 4. Failure Isolation (Dead Letter Exchange)
 
-* **Thought Fragmentation**: Incoming voice messages trigger a 5-minute rolling debounce
-  window in Redis. New messages within the window extend the session, allowing multiple
-  thoughts to be merged into a single cohesive note rather than fragmenting context.
-* **LLM Hallucinations**: Local models occasionally return malformed JSON. The Qwen
-  output is strictly validated through **Pydantic v2** models before any disk I/O
-  occurs, ensuring that only perfectly formatted metadata, tags, and action items reach
-  the Obsidian vault.
+* **Problem**: Transient failures (LLM timeout, Whisper OOM) and permanent failures (
+  malformed payload) need fundamentally different handling - blind infinite retries
+  waste resources on unrecoverable tasks.
+* **Solution**: A dedicated domain exception hierarchy distinguishes retryable from
+  non-retryable failures. Non-recoverable tasks are routed to a Dead Letter Exchange for
+  inspection instead of retrying indefinitely.
+
+### 5. Non-Blocking UI Under Load
+
+* **Problem**: Long-running AI processing (transcription, LLM analysis) directly inside
+  a
+  Telegram handler blocks the bot's event loop, freezing responses for all users.
+* **Solution**: Handlers only enqueue work; a Redis pub-sub layer decouples background
+  workers from the Telegram UI, pushing status updates back to the user asynchronously
+  as processing completes.
+
+### 6. Observability Across the AI Pipeline
+
+* **Problem**: Failures in an AI pipeline are often silent - a slow LLM call or a
+  degrading
+  embedding step doesn't crash anything, it just quietly erodes UX.
+* **Solution**: Instrumented every stage - voice processing, LLM duration/errors, vector
+  indexing, DB connection pool - with Prometheus metrics, visualized via provisioned
+  Grafana dashboards.
 
 ---
 
@@ -68,7 +83,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 <div align="center">
 
-`VoiceVault v1.0.0`
+`VoiceVault v0.0.0`
 
 </div>
 
@@ -142,7 +157,7 @@ Delivery Reliability, Multi-Store Consistency, and Semantic Retrieval.
 
 <div align="center">
 
-`VoiceVault v2.0.0`
+`VoiceVault v1.0.0`
 
 </div>
 
